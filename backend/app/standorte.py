@@ -1,6 +1,7 @@
 """Standorte des MVZ-Verbunds: Laden aus `standorte.json` und Suche im Speicher."""
 
 import json
+import unicodedata
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -38,9 +39,16 @@ class Standort(BaseModel):
 def normalize(text: str) -> str:
     """Vergleichsform: ohne Groß-/Kleinschreibung, Umlaute umschrieben.
 
-    `Gynäkologie` → `gynaekologie`
+    `Gynäkologie` → `gynaekologie`. Zerlegte Umlaute (NFD, z. B. von macOS) werden
+    vorher zusammengesetzt, sonst greift die Umschreibung nicht.
     """
-    return text.casefold().translate(_UMLAUTE)
+    return unicodedata.normalize("NFC", text).casefold().translate(_UMLAUTE)
+
+
+def _filter_term(value: str | None) -> str | None:
+    """Normalisierter Filterwert; leer oder nur Leerzeichen bedeutet „kein Filter"."""
+    stripped = value.strip() if value else ""
+    return normalize(stripped) if stripped else None
 
 
 class StandortKatalog:
@@ -49,8 +57,8 @@ class StandortKatalog:
         self._nach_id = {s.id: s for s in self._standorte}
 
     def search(self, fachrichtung: str | None = None, ort: str | None = None) -> list[Standort]:
-        fachrichtung_norm = normalize(fachrichtung) if fachrichtung else None
-        ort_norm = normalize(ort) if ort else None
+        fachrichtung_norm = _filter_term(fachrichtung)
+        ort_norm = _filter_term(ort)
         return [
             s
             for s in self._standorte

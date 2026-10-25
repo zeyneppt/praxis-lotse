@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -62,6 +63,18 @@ def test_normalize(eingabe: str, erwartet: str) -> None:
     assert normalize(eingabe) == erwartet
 
 
+def test_normalize_setzt_zerlegte_umlaute_zusammen() -> None:
+    zerlegt = unicodedata.normalize("NFD", "Gynäkologie")
+    assert zerlegt != "Gynäkologie"
+    assert normalize(zerlegt) == "gynaekologie"
+
+
+def test_filter_mit_zerlegtem_umlaut(katalog: StandortKatalog) -> None:
+    zerlegt = unicodedata.normalize("NFD", "gynäk")
+    assert [s.id for s in katalog.search(fachrichtung=zerlegt)] == ["std-002"]
+    assert [s.id for s in katalog.search(ort=unicodedata.normalize("NFD", "Fürth"))] == ["std-002"]
+
+
 def test_ohne_filter_alle_nach_id_sortiert(katalog: StandortKatalog) -> None:
     assert [s.id for s in katalog.search()] == ["std-001", "std-002", "std-003"]
 
@@ -77,6 +90,8 @@ def test_ohne_filter_alle_nach_id_sortiert(katalog: StandortKatalog) -> None:
         ("medizin", ["std-002"]),
         ("Zahnmedizin", []),
         ("", ["std-001", "std-002", "std-003"]),
+        (" ", ["std-001", "std-002", "std-003"]),
+        ("  gastro  ", ["std-001"]),
     ],
 )
 def test_filter_fachrichtung(
@@ -87,7 +102,14 @@ def test_filter_fachrichtung(
 
 @pytest.mark.parametrize(
     ("ort", "erwartet"),
-    [("lauf", ["std-003"]), ("NÜRNBERG", ["std-001"]), ("nuernberg", ["std-001"]), ("Köln", [])],
+    [
+        ("lauf", ["std-003"]),
+        ("NÜRNBERG", ["std-001"]),
+        ("nuernberg", ["std-001"]),
+        ("Köln", []),
+        ("\t ", ["std-001", "std-002", "std-003"]),
+        (" fürth ", ["std-002"]),
+    ],
 )
 def test_filter_ort(katalog: StandortKatalog, ort: str, erwartet: list[str]) -> None:
     assert [s.id for s in katalog.search(ort=ort)] == erwartet
@@ -135,6 +157,18 @@ def test_api_liste_mit_filtern(client: TestClient) -> None:
     antwort = client.get("/api/standorte", params={"fachrichtung": "gynaekologie", "ort": "fürth"})
     assert antwort.status_code == 200
     assert [s["id"] for s in antwort.json()] == ["std-002"]
+
+
+def test_api_filter_nur_leerzeichen_wirkt_wie_kein_filter(client: TestClient) -> None:
+    antwort = client.get("/api/standorte", params={"fachrichtung": " ", "ort": " "})
+    assert antwort.status_code == 200
+    assert [s["id"] for s in antwort.json()] == ["std-001", "std-002", "std-003"]
+
+
+@pytest.mark.parametrize("parameter", ["fachrichtung", "ort"])
+def test_api_filter_hoechstens_100_zeichen(client: TestClient, parameter: str) -> None:
+    assert client.get("/api/standorte", params={parameter: "x" * 100}).status_code == 200
+    assert client.get("/api/standorte", params={parameter: "x" * 101}).status_code == 422
 
 
 def test_api_unbekannter_filter_liefert_leere_liste(client: TestClient) -> None:

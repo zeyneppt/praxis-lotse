@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.standorte import Standort, StandortKatalog
 
@@ -15,11 +15,12 @@ def get_katalog(request: Request) -> StandortKatalog:
 
 
 Katalog = Annotated[StandortKatalog, Depends(get_katalog)]
+Filter = Annotated[str | None, Query(max_length=100)]
 
 
 @router.get("/standorte", response_model=list[Standort])
 def list_standorte(
-    katalog: Katalog, fachrichtung: str | None = None, ort: str | None = None
+    katalog: Katalog, fachrichtung: Filter = None, ort: Filter = None
 ) -> list[Standort]:
     return katalog.search(fachrichtung=fachrichtung, ort=ort)
 
