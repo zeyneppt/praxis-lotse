@@ -1,0 +1,51 @@
+# Praxis-Lotse – Befehle siehe CLAUDE.md
+SHELL := /bin/bash
+
+PYTHON ?= python3.12
+VENV := backend/.venv
+ROBOT ?= robot
+ROBOT_OUT := reports/robot
+
+ifdef SPEC
+INCLUDES := --include spec-$(SPEC)
+else
+INCLUDES = $(shell scripts/aktive_specs.sh)
+endif
+
+.PHONY: up down ingest lint test acceptance acceptance-llm eval
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+ingest:
+	@echo "make ingest: noch nicht umgesetzt (Spec 003)."
+
+eval:
+	@echo "make eval: noch nicht umgesetzt (Spec 007)."
+
+$(VENV)/.installiert: backend/pyproject.toml
+	$(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/pip install --quiet --upgrade pip
+	$(VENV)/bin/pip install --quiet -e "backend[dev]"
+	touch $@
+
+frontend/node_modules/.package-lock.json: frontend/package-lock.json
+	cd frontend && npm ci
+
+lint: $(VENV)/.installiert frontend/node_modules/.package-lock.json
+	cd backend && .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy
+	cd frontend && npx eslint . && npx tsc --noEmit
+
+test: $(VENV)/.installiert
+	cd backend && .venv/bin/pytest -q
+
+acceptance:
+	@if [ -z "$(strip $(INCLUDES))" ]; then echo "Keine aktive Spec – keine Abnahmetests."; exit 0; fi; \
+	$(ROBOT) --outputdir $(ROBOT_OUT) --exclude llm $(INCLUDES) tests/acceptance
+
+acceptance-llm:
+	@if [ -z "$(strip $(INCLUDES))" ]; then echo "Keine aktive Spec – keine Abnahmetests."; exit 0; fi; \
+	$(ROBOT) --outputdir $(ROBOT_OUT) --exclude fake-only $(INCLUDES) tests/acceptance
