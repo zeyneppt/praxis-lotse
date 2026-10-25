@@ -87,7 +87,11 @@ Vorlage:
     ihren Verlauf nicht immer (laut Spec nur im Speicher, daher so gelassen).
   - Ein Datenbankfehler während eines Werkzeugaufrufs ergibt `500` (kein Anbieterfehler im
     Sinne von Anforderung 6).
-- Eingriffe durch den Menschen: keine.
+- Eingriffe durch den Menschen:
+  - Entscheidung nach dem PR: Die Rückfallsuche (Server sucht selbst, wenn das Modell kein
+    Werkzeug nutzt) bleibt als **bewusste Abweichung** von „Das LLM entscheidet selbst".
+    Begründung: Antworten sollen sich immer auf Werkzeugergebnisse stützen; das ist wichtiger
+    als die freie Werkzeugwahl. In den Umsetzungsnotizen von Spec 004 vermerkt.
 - Review-Ergebnis: steht aus.
 
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)

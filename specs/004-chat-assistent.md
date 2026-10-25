@@ -123,6 +123,9 @@ Nachträge zum Plan (aus den Läufen gegen Ollama, Details im Factory-Log):
 - Antwortet das Modell in der ersten Runde ohne Werkzeugaufruf, verwirft der Server diese
   Antwort, ruft selbst `wissen_suchen` mit der Nutzernachricht auf und lässt das Modell auf
   Grundlage der Treffer antworten (Rückfallsuche, zählt zum Limit von 4).
+  **Bewusste Abweichung von Anforderung „Das LLM entscheidet selbst" (Entscheidung des
+  Menschen, 2026-10-25):** Die Rückfallsuche bleibt. Antworten sollen sich immer auf
+  Werkzeugergebnisse stützen; das ist wichtiger als die freie Werkzeugwahl des Modells.
 - Werkzeugaufrufe, die Qwen als Text statt als Function Call liefert
   (`{"name": …, "arguments": …}`, mit oder ohne `<tool_call>`-Tag), werden erkannt.
 - `LLM_TIMEOUT_SECONDS` Standard 60 (lokal ~30 s pro Antwortrunde mit qwen2.5:7b).
