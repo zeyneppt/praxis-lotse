@@ -22,6 +22,74 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 004 – Chat-Assistent mit Werkzeugen (2026-10-25)
+
+- Durchläufe bis alle Tests grün: 1 für `make acceptance SPEC=004` (7/7 im ersten Lauf,
+  `make acceptance` 30/30); `make lint` 2 Läufe, `make test` 151/151.
+  Zusätzlich 7 Läufe der `llm`-Tests gegen Ollama (qwen2.5:7b): 8/11 → 9/11 → 10/11 →
+  10/11 → 9/11 → 10/11 und 11/11 (siehe unten).
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Zwei Zeilen über 100 Zeichen – von `make lint` (ruff E501) gefunden.
+  - pytest-Tests übergaben `httpx.Client` an die SDKs; `openai` 3.x und `anthropic` 2.x
+    nutzen `httpx2` und lehnen das ab – vom pytest-Lauf und mypy gefunden, Tests nutzen
+    jetzt `httpx2.MockTransport` (kommt mit den SDKs, keine eigene Abhängigkeit).
+  - Erster Systemprompt: qwen2.5:7b rief in den `llm`-Tests gar keine Werkzeuge auf und
+    antwortete aus eigenem Wissen (Log: „0 Werkzeugaufrufe"). Ein Vergleich direkt gegen
+    Ollama (je Variante 6–20 Anfragen) zeigte: Kein einzelner Abschnitt ist schuld,
+    `tool_choice: "required"` ignoriert Ollama, eine Erinnerung als Folgenachricht hilft nicht.
+    Eine Regel ganz oben im Prompt hebt die Quote auf ~70 %, nicht auf 100 %.
+    Deshalb zusätzlich die Rückfallsuche im Code (siehe Annahmen).
+  - Qwen lieferte Werkzeugaufrufe teils als Text, mit verstümmeltem öffnendem Tag
+    („onaut", „isphere" statt `<tool_call>`); Ollama erkannte sie nicht. Mein erster Parser
+    suchte nur das korrekte Tag – durch Zeitmessung des Sitzungs-Tests gefunden, jetzt zählt
+    jedes JSON-Objekt `{"name": <Text>, "arguments": …}` in der Antwort.
+  - `LLM_TIMEOUT_SECONDS=30` war zu knapp: Die Antwortrunde dauert auf diesem Rechner
+    27–30 s (~1700 Prompt-Tokens, ~150 Antwort-Tokens) – vom Log (`APITimeoutError`) und einer
+    Messung gefunden. Standard jetzt 60.
+- Getroffene Annahmen:
+  - Neue Abhängigkeiten: `openai` (Ollama über die OpenAI-kompatible Schnittstelle, später
+    Azure über `base_url`) und `anthropic` – beide verlangt die Spec.
+  - Neue Einstellung `LLM_TIMEOUT_SECONDS` (Standard 60, in `.env.example`). `OLLAMA_BASE_URL`
+    wird in `docker-compose.yml` mit Standard `http://host.docker.internal:11434/v1` durchgereicht.
+    SDK-Wiederholungen: Ollama 0, Anthropic 1.
+  - **Quellen** („gegeben **und** gestützt"): Das Modell nennt in einer letzten Zeile
+    `Quellen: <dokument>, …`; der Server entfernt die Zeile und übernimmt nur Dokumente, die
+    das Modell tatsächlich bekommen hat (Dateiname oder Titel). `Quellen: keine` → `[]`.
+    Fehlt die Zeile oder passt sie zu keinem Dokument, zählen alle gelieferten Dokumente.
+    `standorte.json` gilt als geliefert, wenn `standorte_suchen` mindestens einen Standort fand.
+  - **Rückfallsuche:** Antwortet das Modell in der ersten Runde ohne Werkzeug, verwirft der
+    Server die Antwort, ruft `wissen_suchen(frage=<Nachricht>)` auf und lässt das Modell
+    erneut antworten. Begründung: „antwortet nur auf Grundlage dieser Ergebnisse" wiegt
+    schwerer als „entscheidet selbst"; wenn das Modell Werkzeuge nutzt, entscheidet es weiter selbst.
+    Nebenwirkung: Auch Grüße („Hallo") lösen eine Suche aus (eine LLM-Runde mehr).
+  - Werkzeuglimit: 4 Aufrufe pro Nachricht. Weitere Aufrufe derselben Antwort bekommen ein
+    Fehlerergebnis (jeder Aufruf braucht eines), danach eine Runde mit `tool_choice: none`;
+    liefert das Modell trotzdem Aufrufe, zählt nur sein Text.
+  - Sitzungen speichern nur Nutzernachrichten und Antworttexte, keine Werkzeugaufrufe/-ergebnisse;
+    gekürzt wird paarweise, damit der Verlauf mit einer Nutzernachricht beginnt. Fehlerantworten
+    (`kategorie: "fehler"`) kommen nicht in den Verlauf. Eine unbekannte `sitzung_id` startet
+    eine neue Sitzung unter dieser ID; eine `sitzung_id`, die keine UUID ist, ergibt `422`.
+  - `nachricht` wird vor der Längenprüfung getrimmt (nur Leerzeichen → `422`), wie in Spec 003.
+  - Die Fehlermeldung verweist allgemein auf „Ihren Standort", weil es keine zentrale Nummer gibt.
+  - Logs: nur Länge der Nachricht, Zahl der Werkzeugaufrufe und Quellen bzw. der Fehlertyp;
+    ein pytest-Test prüft, dass der Nachrichtentext nicht im Log steht. Werkzeugfehler an das
+    Modell enthalten nur Feldnamen und Fehlertypen, keine Eingabewerte.
+  - Prompt-Injection-Kennzeichnung und Kanarien-Prüfung der Antwort gehören zu Spec 006;
+    der Systemprompt enthält die Kennung bereits mit dem Verbot, sie auszugeben.
+- Offene Punkte:
+  - Die `llm`-Tests sind mit qwen2.5:7b nicht stabil grün. Sporadisch: „Unbekanntes wird nicht
+    erfunden" (Modell sagt richtig „keine Standorte", verweist aber nicht aufs Telefon) und
+    „Wissensfrage …" (nennt die 24 Stunden nicht). Ein größeres Modell oder Anthropic dürfte
+    das beheben; nicht geprüft (kein API-Key verwendet).
+  - Auf langsamer Hardware kann eine Anfrage mit mehreren Runden das 60-s-Zeitlimit der
+    Robot-Session überschreiten. Ein Gesamtbudget pro Anfrage wäre eine Option.
+  - Der Sitzungsspeicher ist pro Prozess; mit mehreren Uvicorn-Workern fänden Folgeanfragen
+    ihren Verlauf nicht immer (laut Spec nur im Speicher, daher so gelassen).
+  - Ein Datenbankfehler während eines Werkzeugaufrufs ergibt `500` (kein Anbieterfehler im
+    Sinne von Anforderung 6).
+- Eingriffe durch den Menschen: keine.
+- Review-Ergebnis: steht aus.
+
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 (Abnahme 9/9 im ersten Lauf, `make acceptance` 23/23);

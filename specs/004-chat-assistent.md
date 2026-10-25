@@ -1,6 +1,6 @@
 # Spec 004 – Chat-Assistent mit Werkzeugen
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 002, 003
 **Abnahmetests:** `tests/acceptance/004_chat.robot` (Tag `spec-004`)
 
@@ -95,3 +95,38 @@ mit Quellenangabe.
 
 ## Umsetzungsnotizen
 
+Plan:
+1. Abhängigkeiten `openai` (Ollama/Azure über OpenAI-kompatible API) und `anthropic`.
+   Neue Einstellungen `LLM_MODEL`, `LLM_MAX_TOKENS`, `OLLAMA_BASE_URL`, `ANTHROPIC_API_KEY`,
+   `LLM_TIMEOUT_SECONDS` in `app/config.py`.
+2. `app/llm/`: anbieterneutrale Nachrichten (`UserMessage`, `AssistantMessage` mit
+   `ToolCall`s, `ToolResult`) und ein `LlmProvider`-Protokoll; Anbieterfehler → `LlmError`.
+3. Provider `openai_compat` (Ollama, Startprüfung nur mit Warnung), `anthropic`
+   (fehlender Key → Start bricht mit klarer Meldung ab) und `fake` (deterministisch).
+4. `app/werkzeuge.py`: `standorte_suchen`, `wissen_suchen` (k = 4) mit Pydantic-Argumenten;
+   unbekannte Namen und ungültige Argumente werden zu Fehler-Ergebnissen fürs Modell.
+   Merkt sich, welche Dokumente dem Modell gegeben wurden.
+5. `app/chat.py`: Schleife mit höchstens 4 Werkzeugaufrufen pro Nachricht, danach
+   Antwort ohne Werkzeuge erzwungen. Quellen = gelieferte Dokumente, auf die das Modell
+   in einer Zeile `Quellen: …` verweist (Rückfall: alle gelieferten), jedes nur einmal.
+6. Sitzungsspeicher im Speicher: 20 Nachrichten (nur Nutzer-/Antworttexte),
+   30 Minuten Ablauf, threadsicher.
+7. `app/prompts/system.md` mit Rolle, Sprache/Länge, Quellenregel, Leitplanken, Kanarie.
+8. `POST /api/chat` (`app/api_chat.py`): Validierung 1–1000 Zeichen, `ChatAntwort`,
+   Anbieterfehler → `kategorie: "fehler"` mit Verweis aufs Telefon, kein Stacktrace.
+9. pytest: Fake-Provider, Werkzeugfehler, Werkzeuglimit, Quellen, Sitzungen, API, Fehlerfall,
+   Provider-Übersetzung (OpenAI/Anthropic mit gefälschten Clients).
+10. Container bauen, `make ingest`, `make lint`, `make test`, `make acceptance SPEC=004`,
+    `make acceptance`; zusätzlich die `llm`-Tests einmal gegen Ollama.
+
+Nachträge zum Plan (aus den Läufen gegen Ollama, Details im Factory-Log):
+- Antwortet das Modell in der ersten Runde ohne Werkzeugaufruf, verwirft der Server diese
+  Antwort, ruft selbst `wissen_suchen` mit der Nutzernachricht auf und lässt das Modell auf
+  Grundlage der Treffer antworten (Rückfallsuche, zählt zum Limit von 4).
+- Werkzeugaufrufe, die Qwen als Text statt als Function Call liefert
+  (`{"name": …, "arguments": …}`, mit oder ohne `<tool_call>`-Tag), werden erkannt.
+- `LLM_TIMEOUT_SECONDS` Standard 60 (lokal ~30 s pro Antwortrunde mit qwen2.5:7b).
+
+Ergebnis: `make lint` grün, `make test` 151/151 (lokal und im Container),
+`make acceptance SPEC=004` 7/7, `make acceptance` 30/30. Zusätzlich `llm`-Tests gegen
+Ollama (qwen2.5:7b): letzte zwei Läufe 10/11 und 11/11.

@@ -26,6 +26,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://lotse:lotse@db:5432/lotse}
       LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
     ports:
       - "8000:8000"
     volumes:
