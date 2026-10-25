@@ -8,13 +8,16 @@ from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.api_standorte import router as standorte_router
 from app.config import LlmProvider, Settings, get_settings
 from app.db import database_reachable, run_migrations
+from app.standorte import load_katalog
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     run_migrations()
+    app.state.standort_katalog = load_katalog(get_settings().data_dir)
     yield
 
 
@@ -25,6 +28,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(standorte_router)
 
 
 class HealthResponse(BaseModel):
