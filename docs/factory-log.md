@@ -47,4 +47,4 @@ Vorlage:
 - Offene Punkte:
   - pytest meldet eine `StarletteDeprecationWarning` (httpx im TestClient); harmlos, nicht behoben.
 - Eingriffe durch den Menschen: keine
-- Review-Ergebnis: ausstehend
+- Review-Ergebnis: freigegeben nach 1 Runde (keine blockierenden Punkte, Hinweise im PR-Kommentar)
