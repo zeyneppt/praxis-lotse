@@ -9,6 +9,14 @@ COPY app ./app
 # damit app/db.py die Migrationen unter /app/alembic findet.
 RUN pip install --no-cache-dir -e ".[dev]"
 
+# Embedding-Modell beim Build laden, nicht beim ersten Request (Spec 003).
+# Standard wie in .env.example und app/config.py.
+ARG EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+ENV EMBEDDING_MODEL=${EMBEDDING_MODEL} FASTEMBED_CACHE_PATH=/opt/fastembed
+RUN python -c "import os; from fastembed import TextEmbedding; TextEmbedding(os.environ['EMBEDDING_MODEL'])"
+# Danach kein Netzwerkzugriff des Modell-Hubs mehr.
+ENV HF_HUB_OFFLINE=1
+
 COPY . .
 
 EXPOSE 8000

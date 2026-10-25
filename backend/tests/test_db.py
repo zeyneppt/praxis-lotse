@@ -49,4 +49,4 @@ def test_migrationsverzeichnis_wird_gefunden() -> None:
 
     config = Config()
     config.set_main_option("script_location", str(db.ALEMBIC_DIR))
-    assert ScriptDirectory.from_config(config).get_current_head() == "0001"
+    assert ScriptDirectory.from_config(config).get_current_head() == "0002"

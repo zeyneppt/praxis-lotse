@@ -21,7 +21,7 @@ down:
 	docker compose down
 
 ingest:
-	@echo "make ingest: noch nicht umgesetzt (Spec 003)."
+	docker compose exec -T backend python -m app.ingest
 
 eval:
 	@echo "make eval: noch nicht umgesetzt (Spec 007)."
