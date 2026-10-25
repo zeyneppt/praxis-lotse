@@ -1,6 +1,6 @@
 # Spec 003 – Wissensbasis und semantische Suche (RAG-Retrieval)
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 001
 **Abnahmetests:** `tests/acceptance/003_wissen.robot` (Tag `spec-003`)
 
@@ -56,3 +56,27 @@ RAG; die Antwortformulierung folgt in Spec 004.
 
 ## Umsetzungsnotizen
 
+Plan:
+1. Abhängigkeiten `fastembed` (Embeddings), `pgvector` (SQLAlchemy-Typ `Vector`),
+   `pyyaml` (YAML-Kopf). `EMBEDDING_MODEL` in `app/config.py`.
+2. Migration `0002`: Tabelle `wissen_abschnitte` (Spec-Felder plus `position`),
+   `embedding vector(384)`, HNSW-Index mit `vector_cosine_ops`.
+3. `app/wissen.py`: YAML-Kopf lesen, Chunking pro `##`-Überschrift (Text davor verworfen),
+   Einbettungstext `"<titel> – <abschnitt>\n\n<text>"`, `inhalt_hash` = SHA-256 über Modellname
+   und Einbettungstext.
+4. `app/embeddings.py`: dünne Hülle um `fastembed.TextEmbedding`, im Lifespan geladen,
+   per Dependency in pytest durch ein Fake ersetzbar.
+5. `app/ingest.py` (`python -m app.ingest`): Abgleich über `(dokument, inhalt_hash)`;
+   nur neue Abschnitte werden eingebettet, nicht mehr vorhandene gelöscht.
+   Ausgabe: neu / unverändert / gelöscht. `make ingest` ruft das im Container auf.
+6. Suche: Kosinus-Distanz `<=>`, höchstens 2 Treffer pro Dokument (Fensterfunktion),
+   `score = round(1 − Distanz, 3)`; Log nur Dauer und Trefferzahl.
+7. `app/api_wissen.py`: `POST /api/wissen/suche` (Validierung 1–500 Zeichen, k 1–10),
+   `GET /api/wissen/dokumente`.
+8. Dockerfile: Build-Argument `EMBEDDING_MODEL`, Modell beim Build laden, danach offline;
+   `docker-compose.yml` reicht das Build-Argument durch.
+9. pytest: Chunking, Hash, Ingest-Abgleich, Validierung, Score, Logging ohne Fragetext.
+10. Container bauen, `make ingest`, `make lint`, `make test`, `make acceptance SPEC=003`, `make acceptance`.
+
+Ergebnis: `make lint` grün, `make test` 72/72, `make acceptance SPEC=003` 9/9,
+`make acceptance` 23/23. Annahmen und offene Punkte siehe `docs/factory-log.md`.

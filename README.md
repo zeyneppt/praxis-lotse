@@ -69,8 +69,8 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | Spec | Titel | Status |
 |---|---|---|
 | 001 | Projektgerüst, lokale Umgebung und CI | fertig |
-| 002 | Standortsuche | offen |
-| 003 | Wissensbasis und semantische Suche | offen |
+| 002 | Standortsuche | fertig |
+| 003 | Wissensbasis und semantische Suche | fertig |
 | 004 | Chat-Assistent mit Werkzeugen | offen |
 | 005 | Terminanfrage | offen |
 | 006 | Sicherheitsleitplanken | offen |

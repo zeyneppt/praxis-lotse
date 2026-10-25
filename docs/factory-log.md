@@ -22,6 +22,55 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
+
+- Durchläufe bis alle Tests grün: 1 (Abnahme 9/9 im ersten Lauf, `make acceptance` 23/23);
+  `make lint` brauchte 3 Läufe, `make test` 72/72.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Import-Reihenfolge in `app/main.py` (ruff I001) und eine von `ruff format` anders
+    umbrochene Testsignatur – von `make lint` gefunden.
+  - Falscher `type: ignore`-Code in einem pytest-Test (mypy strict meldete `no-untyped-call`);
+    jetzt mit `ClauseElement` typisiert.
+- Getroffene Annahmen:
+  - Neue Abhängigkeiten: `fastembed` (Spec verlangt es), `pgvector` (SQLAlchemy-Typ `Vector`
+    und `cosine_distance`), `pyyaml` (YAML-Kopf), dev: `types-PyYAML`.
+  - `inhalt_hash` = SHA-256 über Modellname + Einbettungstext (`"<titel> – <abschnitt>\n\n<text>"`).
+    Ein Modellwechsel bettet so alles neu ein. Abgleich über `(dokument, inhalt_hash)`:
+    Ein geänderter Abschnitt zählt als 1 neu + 1 gelöscht. `position` und `fachrichtungen`
+    (nicht eingebettet) werden bei unveränderten Abschnitten aktualisiert.
+  - „gelöscht" zählt alle entfernten Abschnitte (gelöschte Dateien und geänderte Abschnitte).
+    Manuell geprüft mit einer Kopie von `data/wissen` ohne `termin-absagen.md`:
+    `0 neu, 29 unverändert, 4 gelöscht`; danach mit Originaldaten `4 neu, 29 unverändert, 0 gelöscht`.
+  - Spalte `embedding vector(384)` fest (Dimension des Standardmodells). Liefert ein anderes
+    `EMBEDDING_MODEL` eine andere Dimension, bricht der Ingest mit klarer Meldung ab;
+    dann braucht es eine neue Migration.
+  - Zusätzliche Spalte `position` (Reihenfolge im Dokument); die Spec nennt „mindestens" die Felder.
+  - Leere Abschnitte werden mitgezählt (ein Abschnitt pro `##`, wie in der Spec); `###` trennt nicht.
+  - „Höchstens 2 pro Dokument" per `row_number() OVER (PARTITION BY dokument …)` über alle
+    Abschnitte. Das nutzt den HNSW-Index nicht, ist aber exakt; bei 33 Abschnitten ~1 ms.
+    Der Index existiert wie gefordert für spätere größere Datenmengen.
+  - Das Modell wird im Dockerfile geladen (`FASTEMBED_CACHE_PATH=/opt/fastembed`), danach
+    `HF_HUB_OFFLINE=1`. Der Backend-Start lädt das Modell aus dem Cache in den Speicher
+    (Lifespan), nicht beim ersten Request. `docker-compose.yml` reicht `EMBEDDING_MODEL` als
+    Build-Argument durch.
+  - Logging: Spec 006 (`redact()`) gibt es noch nicht. Die Suche loggt nur Trefferzahl und Dauer;
+    ein pytest-Test prüft, dass der Fragetext nicht im Log steht. Damit App-Logs überhaupt
+    erscheinen, setzt `app/main.py` `logging.basicConfig(level=INFO)` (Uvicorn konfiguriert nur
+    seine eigenen Logger). Spec 006 ersetzt das durch den Redaktionsfilter.
+  - `GET /api/wissen/dokumente` gruppiert nach `dokument` (Titel per `min()`, nach Ingest ohnehin eindeutig).
+  - README-Statustabelle: 002 und 003 auf `fertig` gesetzt (002 war nach dem Merge noch `offen`).
+- Offene Punkte:
+  - Das Modell schneidet Eingaben nach 128 Token ab. 1 von 33 Abschnitten ist länger
+    („Ernährung in den Tagen davor", 159 Token): Der Absatz zu klaren Flüssigkeiten am Vortag
+    fließt nicht ins Embedding ein (der Text im Treffer ist vollständig). Kandidat für die
+    Eval in Spec 007 (z. B. Chunking nach Absätzen oder anderes Modell).
+  - Scores im Abstand: „Koloskopie essen" → darmspiegelung 0,734 vs. magenspiegelung 0,605;
+    „Termin absagen" → termin-absagen 0,793 vs. 0,561. Die Tests sind also nicht knapp.
+  - Das Docker-Image wächst durch fastembed/onnxruntime und das Modell (~220 MB).
+- Eingriffe durch den Menschen:
+  - keine
+- Review-Ergebnis: ausstehend
+
 ## Spec 002 – Standortsuche (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 (Abnahme 11/11 im ersten Lauf, `make acceptance` 14/14);
