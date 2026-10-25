@@ -93,12 +93,22 @@ def parse_dokument(dokument: str, inhalt: str) -> list[Abschnitt]:
     return abschnitte
 
 
+class KeineWissensdokumente(Exception):
+    """Verzeichnis fehlt oder ist leer – ein Ingest würde sonst alle Abschnitte löschen."""
+
+
 def load_abschnitte(data_dir: Path) -> list[Abschnitt]:
     verzeichnis = data_dir / WISSEN_VERZEICHNIS
+    if not verzeichnis.is_dir():
+        raise KeineWissensdokumente(f"Verzeichnis {verzeichnis} fehlt")
+    dateien = sorted(verzeichnis.glob("*.md"))
+    if not dateien:
+        raise KeineWissensdokumente(f"Keine *.md-Dateien in {verzeichnis}")
     return [
         abschnitt
-        for datei in sorted(verzeichnis.glob("*.md"))
-        for abschnitt in parse_dokument(datei.name, datei.read_text(encoding="utf-8"))
+        for datei in dateien
+        # utf-8-sig: Ein BOM am Dateianfang würde sonst den YAML-Kopf verdecken.
+        for abschnitt in parse_dokument(datei.name, datei.read_text(encoding="utf-8-sig"))
     ]
 
 

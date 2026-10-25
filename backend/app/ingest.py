@@ -1,5 +1,6 @@
 """CLI `python -m app.ingest`: Wissensdokumente idempotent in die Vektordatenbank laden."""
 
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -9,7 +10,13 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_engine, run_migrations
 from app.embeddings import Embedder, FastEmbedder
-from app.wissen import EMBEDDING_DIM, Abschnitt, WissenAbschnitt, load_abschnitte
+from app.wissen import (
+    EMBEDDING_DIM,
+    Abschnitt,
+    KeineWissensdokumente,
+    WissenAbschnitt,
+    load_abschnitte,
+)
 
 
 @dataclass(frozen=True)
@@ -87,8 +94,12 @@ def ingest(
 
 def main() -> None:
     settings = get_settings()
+    # Zuerst die Dokumente lesen: Fehlen sie, wird die Datenbank gar nicht angefasst.
+    try:
+        abschnitte = load_abschnitte(settings.data_dir)
+    except KeineWissensdokumente as fehler:
+        sys.exit(f"Ingest abgebrochen, nichts gelöscht: {fehler}")
     run_migrations()
-    abschnitte = load_abschnitte(settings.data_dir)
     embedder = FastEmbedder(settings.embedding_model)
     with Session(get_engine()) as session, session.begin():
         plan = ingest(session, embedder, abschnitte, settings.embedding_model)

@@ -25,7 +25,7 @@ Vorlage:
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 (Abnahme 9/9 im ersten Lauf, `make acceptance` 23/23);
-  `make lint` brauchte 3 Läufe, `make test` 74/74 (nach Review-Fix).
+  `make lint` brauchte 3 Läufe, `make test` 79/79 (nach Review-Fixes).
 - Fehler des Agenten und wie sie erkannt wurden:
   - Import-Reihenfolge in `app/main.py` (ruff I001) und eine von `ruff format` anders
     umbrochene Testsignatur – von `make lint` gefunden.
@@ -70,12 +70,21 @@ Vorlage:
   - Scores im Abstand: „Koloskopie essen" → darmspiegelung 0,734 vs. magenspiegelung 0,605;
     „Termin absagen" → termin-absagen 0,793 vs. 0,561. Die Tests sind also nicht knapp.
   - Das Docker-Image wächst durch fastembed/onnxruntime und das Modell (~220 MB).
+  - Für Spec 006: Die Standard-422-Antwort von FastAPI enthält im Feld `input` den Eingabewert,
+    bei zu langer `frage` also den kompletten Fragetext (geht nur an den Client zurück, nicht ins Log).
+    Klären, ob Validierungsfehler Eingaben zurückgeben dürfen; sonst eigener
+    `RequestValidationError`-Handler ohne `input`.
 - Eingriffe durch den Menschen:
-  - keine
+  - Nach dem Review: Hinweise 1 und 2 in diesen PR aufnehmen, Hinweis 3 als offenen Punkt für Spec 006.
+    - `make ingest` bricht ab (Exit-Code 1, Meldung „Ingest abgebrochen, nichts gelöscht: …"),
+      wenn `/data/wissen` fehlt oder keine `*.md` enthält. Die Dokumente werden vor jedem
+      Datenbank- oder Modellzugriff gelesen; pytest prüft, dass weder Migrationen, Engine noch
+      Modell angefasst werden. Im Container geprüft: beide Fälle Exit 1, danach weiterhin
+      `0 neu, 33 unverändert, 0 gelöscht`.
+    - Wissensdokumente werden mit `utf-8-sig` gelesen; pytest-Fall mit BOM.
 - Review-Ergebnis: freigegeben nach 2 Runden. Runde 1: ein blockierender Punkt (Frage nur aus
   Leerzeichen → 200 statt 422), behoben. Runde 2: keine blockierenden Punkte. Hinweise
-  (u. a. Ingest löscht alles bei fehlendem/leerem `/data/wissen`, UTF-8-BOM, `input` in
-  422-Antworten für Spec 006, fehlender Unit-Test für `ingest()`) im PR-Kommentar, nicht umgesetzt.
+  im PR-Kommentar; zwei davon auf Wunsch des Menschen umgesetzt (siehe Eingriffe).
 
 ## Spec 002 – Standortsuche (2026-10-25)
 

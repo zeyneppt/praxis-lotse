@@ -78,5 +78,5 @@ Plan:
 9. pytest: Chunking, Hash, Ingest-Abgleich, Validierung, Score, Logging ohne Fragetext.
 10. Container bauen, `make ingest`, `make lint`, `make test`, `make acceptance SPEC=003`, `make acceptance`.
 
-Ergebnis: `make lint` grün, `make test` 74/74, `make acceptance SPEC=003` 9/9,
+Ergebnis: `make lint` grün, `make test` 79/79, `make acceptance SPEC=003` 9/9,
 `make acceptance` 23/23. Annahmen und offene Punkte siehe `docs/factory-log.md`.

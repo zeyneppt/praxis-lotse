@@ -8,12 +8,14 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ClauseElement
 
-from app import api_wissen
+from app import api_wissen, ingest
 from app.api_wissen import get_embedder, get_session
+from app.config import Settings
 from app.ingest import Bestand, plan_ingest
 from app.main import app
 from app.wissen import (
     Abschnitt,
+    KeineWissensdokumente,
     Treffer,
     load_abschnitte,
     parse_dokument,
@@ -94,6 +96,51 @@ def test_inhalt_hash_haengt_von_inhalt_und_modell_ab() -> None:
     assert len(a.inhalt_hash(MODELL)) == 64
     assert a.inhalt_hash(MODELL) != b.inhalt_hash(MODELL)
     assert a.inhalt_hash(MODELL) != a.inhalt_hash("anderes-modell")
+
+
+def test_load_abschnitte_liest_datei_mit_bom(tmp_path: Path) -> None:
+    (tmp_path / "wissen").mkdir()
+    (tmp_path / "wissen" / "bom.md").write_bytes(b"\xef\xbb\xbf" + DOKUMENT.encode())
+
+    abschnitte = load_abschnitte(tmp_path)
+
+    assert [a.abschnitt for a in abschnitte] == ["Erster Abschnitt", "Zweiter Abschnitt"]
+    assert abschnitte[0].titel == "Testdokument"
+
+
+@pytest.mark.parametrize("mit_verzeichnis", [False, True])
+def test_load_abschnitte_ohne_dokumente_bricht_ab(tmp_path: Path, mit_verzeichnis: bool) -> None:
+    if mit_verzeichnis:
+        (tmp_path / "wissen").mkdir()
+        (tmp_path / "wissen" / "notiz.txt").write_text("kein Markdown", encoding="utf-8")
+    with pytest.raises(KeineWissensdokumente):
+        load_abschnitte(tmp_path)
+
+
+@pytest.mark.parametrize("mit_verzeichnis", [False, True])
+def test_ingest_ohne_dokumente_endet_mit_fehler_ohne_db_zugriff(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mit_verzeichnis: bool,
+) -> None:
+    if mit_verzeichnis:
+        (tmp_path / "wissen").mkdir()
+
+    def nicht_aufrufen(*args: object) -> None:
+        raise AssertionError("Datenbank oder Modell darf nicht angefasst werden")
+
+    monkeypatch.setattr(ingest, "get_settings", lambda: Settings(data_dir=tmp_path))
+    monkeypatch.setattr(ingest, "run_migrations", nicht_aufrufen)
+    monkeypatch.setattr(ingest, "get_engine", nicht_aufrufen)
+    monkeypatch.setattr(ingest, "FastEmbedder", nicht_aufrufen)
+
+    with pytest.raises(SystemExit) as beendet:
+        ingest.main()
+
+    assert isinstance(beendet.value.code, str)
+    assert "Ingest abgebrochen, nichts gelöscht" in beendet.value.code
+    assert "Ingest:" not in capsys.readouterr().out
 
 
 def test_echte_wissensdokumente() -> None:
