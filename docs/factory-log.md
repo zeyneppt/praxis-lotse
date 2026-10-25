@@ -22,6 +22,42 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 002 – Standortsuche (2026-10-25)
+
+- Durchläufe bis alle Tests grün: 1 (Abnahme 11/11 im ersten Lauf, `make acceptance` 14/14);
+  `make lint` brauchte 2 Läufe.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Docstring in `app/standorte.py` war länger als 100 Zeichen – von `make lint` (ruff E501) gefunden.
+  - Ein Filter nur aus Leerzeichen (`?fachrichtung=%20`) galt nicht als leer und fand alle
+    Standorte mit Leerzeichen in der Fachrichtung („Innere Medizin") – entgegen der eigenen
+    Annahme unten. Vom Reviewer gefunden, behoben (`strip()`, danach leer = kein Filter).
+  - Zerlegte Umlaute (NFD, z. B. von macOS) wurden nicht umschrieben, `gynäk` in NFD fand
+    nichts – vom Reviewer gefunden, behoben (`unicodedata.normalize("NFC", …)` vor dem Vergleich).
+  - Nach dem Fix formatierte `ruff format` eine Testzeile anders – von `make lint` gefunden.
+- Getroffene Annahmen:
+  - Die Umlaut-Umschreibung (`ä→ae`, `ö→oe`, `ü→ue`, `ß→ss`, plus `casefold()`) gilt für
+    `fachrichtung` **und** `ort` (`nuernberg` findet `Nürnberg`). Die Spec verlangt sie nur
+    für `fachrichtung`; eine gemeinsame Vergleichsfunktion ist einfacher und widerspricht Anf. 3 nicht.
+  - Leerer Filterwert (`?fachrichtung=`) oder nur Leerzeichen wirkt wie kein Filter;
+    Leerzeichen am Rand werden entfernt.
+  - `fachrichtung` und `ort` sind auf 100 Zeichen begrenzt (`Query(max_length=100)`); längere
+    Werte liefern `422` (FastAPI-Standard). Die Spec nennt keine Grenze; Vorschlag des Reviewers
+    als Eingabeprüfung vor Spec 004.
+  - `/api/fachrichtungen` sortiert nach der normalisierten Form, damit ein Wort mit Umlaut am
+    Anfang (z. B. `Ärztlicher …`) bei `A` einsortiert wird und nicht hinter `Z`.
+  - Das Modell `Standort` lehnt unbekannte Felder ab (`extra="forbid"`): Weicht
+    `standorte.json` vom Vertrag ab, startet das Backend nicht, statt Felder still zu verwerfen.
+  - `DATA_DIR` in `.env.example` ergänzt (Standard `/data`).
+- Offene Punkte:
+  - Der Katalog wird nur beim Start geladen; Änderungen an `standorte.json` brauchen einen Neustart
+    (laut Spec so gewollt).
+- Eingriffe durch den Menschen:
+  - Nach dem Review: alle drei Hinweise (Leerzeichen, NFC, Längengrenze) mit pytest-Fällen
+    in diesen PR aufnehmen.
+- Review-Ergebnis: freigegeben nach 1 Runde (keine blockierenden Punkte, Hinweise im PR-Kommentar).
+  Drei Hinweise danach umgesetzt; `make lint` grün, `make test` 43/43 (lokal und im Container),
+  `make acceptance` 14/14 (spec-002 11/11).
+
 ## Spec 001 – Projektgerüst, lokale Umgebung und CI (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 (Abnahme 3/3 im ersten Lauf); `make lint` brauchte 3 Läufe.

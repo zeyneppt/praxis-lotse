@@ -1,6 +1,6 @@
 # Spec 002 – Standortsuche
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 001
 **Abnahmetests:** `tests/acceptance/002_standorte.robot` (Tag `spec-002`)
 
@@ -44,4 +44,17 @@ Chat-Assistent für Standortfragen aufruft (Spec 004).
 - Bearbeiten von Standorten
 
 ## Umsetzungsnotizen
+
+Plan:
+1. `DATA_DIR` (Standard `/data`) in `app/config.py` und `.env.example`.
+2. `app/standorte.py`: Pydantic-Modelle `Standort`/`Oeffnungszeiten` (`extra="forbid"`,
+   damit Vertrag und Datei übereinstimmen), Laden von `standorte.json`, Klasse `StandortKatalog`.
+3. Normalisierung für Filter: `casefold()` plus `ä→ae`, `ö→oe`, `ü→ue`, `ß→ss` auf beiden Seiten,
+   dann Teilwort-Vergleich; gilt für `fachrichtung` und `ort`.
+4. Filter optional, UND-verknüpft, leerer Wert = kein Filter; Ergebnis nach `id` sortiert.
+5. `app/api_standorte.py`: Router mit `/api/standorte`, `/api/standorte/{id}`, `/api/fachrichtungen`.
+6. Katalog wird im Lifespan geladen und in `app.state` gehalten; Zugriff per Dependency
+   (in pytest überschreibbar).
+7. pytest: Normalisierung, Filter, Sortierung, 404, Fachrichtungen, Laden der echten Datendatei.
+8. Container neu bauen, `make lint`, `make test`, `make acceptance SPEC=002`, dann `make acceptance`.
 
