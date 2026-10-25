@@ -46,6 +46,12 @@ make acceptance-llm           # inkl. Tests gegen das echte LLM
 make eval                     # Retrieval-Evaluation, Bericht in reports/eval/
 ```
 
+`make lint` und `make test` laufen **lokal**, nicht im Container: Beim ersten
+Aufruf legt das Makefile eine venv in `backend/.venv` an (Python 3.12,
+`pip install -e "backend[dev]"`) und installiert die Frontend-Pakete mit
+`npm ci`. Die pytest-Tests brauchen keine laufende Datenbank. Ein anderer
+Python-Interpreter lässt sich mit `make test PYTHON=/pfad/zu/python3.12` wählen.
+
 ## Aufbau
 
 ```
@@ -62,7 +68,7 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 
 | Spec | Titel | Status |
 |---|---|---|
-| 001 | Projektgerüst, lokale Umgebung und CI | offen |
+| 001 | Projektgerüst, lokale Umgebung und CI | fertig |
 | 002 | Standortsuche | offen |
 | 003 | Wissensbasis und semantische Suche | offen |
 | 004 | Chat-Assistent mit Werkzeugen | offen |

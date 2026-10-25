@@ -1,6 +1,6 @@
 # Spec 001 – Projektgerüst, lokale Umgebung und CI
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** keine
 **Abnahmetests:** `tests/acceptance/001_projektgeruest.robot` (Tag `spec-001`)
 
@@ -73,4 +73,20 @@ einem Befehl startet, plus eine CI-Pipeline, die ab jetzt jeden Pull Request pr�
 - Deployment in die Cloud
 
 ## Umsetzungsnotizen
+
+Plan:
+
+1. `docker-compose.yml` mit `db` (pgvector/pg16, Healthcheck), `backend`, `frontend`.
+2. Backend: FastAPI in `backend/app/main.py`, Konfiguration über `pydantic-settings`
+   (`app/config.py`), DB-Engine in `app/db.py`, `GET /api/health`.
+3. Alembic in `backend/alembic/`, erste Migration `CREATE EXTENSION vector`;
+   beim Start (Lifespan) `alembic upgrade head`.
+4. pytest-Tests für Health (ok/503, Provider) mit überschriebener DB-Prüfung.
+5. Frontend: Vite + React 18 + TS, `<h1>Praxis-Lotse</h1>`, eslint + `tsc --noEmit`.
+6. `scripts/aktive_specs.sh` liest `**Status:**` aus `specs/0*.md`.
+7. Makefile mit `up down ingest lint test acceptance acceptance-llm eval`;
+   `lint`/`test` laufen lokal in `backend/.venv` (wird bei Bedarf angelegt).
+8. CI `.github/workflows/ci.yml` mit Jobs `geschuetzte-dateien`, `lint-und-test`,
+   `abnahme`, `eval` (deaktiviert bis Spec 007).
+9. README: Weg für `make test` beschreiben.
 
