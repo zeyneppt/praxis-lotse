@@ -5,7 +5,9 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir ".[dev]"
+# Editable install: `app` wird aus /app/app importiert, nicht aus site-packages,
+# damit app/db.py die Migrationen unter /app/alembic findet.
+RUN pip install --no-cache-dir -e ".[dev]"
 
 COPY . .
 

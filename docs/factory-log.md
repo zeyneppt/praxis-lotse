@@ -46,5 +46,22 @@ Vorlage:
   - Lokal läuft Node 26; im Frontend-Container und in der CI Node 22 (LTS).
 - Offene Punkte:
   - pytest meldet eine `StarletteDeprecationWarning` (httpx im TestClient); harmlos, nicht behoben.
-- Eingriffe durch den Menschen: keine
-- Review-Ergebnis: freigegeben nach 1 Runde (keine blockierenden Punkte, Hinweise im PR-Kommentar)
+  - `alembic/env.py` kennt keinen Offline-Modus (`alembic upgrade head --sql` baut trotzdem
+    eine Verbindung auf); ggf. `context.is_offline_mode()` ergänzen.
+  - Der CI-Job `geschuetzte-dateien` greift nur bei PRs. Direkte Pushes auf `main` brauchen
+    Branch Protection mit Required Checks (Repo-Einstellung, Mensch). Optional
+    `git diff --no-renames`, damit Verschiebungen eindeutig erkannt werden.
+  - `--host 0.0.0.0` steht mehrfach (package.json, frontend/Dockerfile, docker-compose.yml,
+    vite.config.ts); eine Stelle reicht. Ohne Source-Mount kein Hot Reload im Frontend-Container.
+  - `CORS_ORIGINS` ist per Umgebungsvariable setzbar, fehlt aber in `.env.example`.
+  - `DATABASE_URL` hat einen Default in `backend/app/config.py`; langfristig Pflichtvariable ohne Default.
+- Eingriffe durch den Menschen:
+  - Nach dem Review: `connect_timeout` und Dockerfile-Fix noch in diesen PR aufnehmen,
+    übrige Hinweise als offene Punkte festhalten.
+- Review-Ergebnis: freigegeben nach 1 Runde (keine blockierenden Punkte, Hinweise im PR-Kommentar).
+  Zwei Hinweise danach umgesetzt:
+  - `connect_timeout` von 3 s in `app/db.py` – im Container gegen einen nicht erreichbaren Host
+    geprüft: `database_reachable()` liefert nach 3,0 s `False`, statt zu hängen.
+  - `backend/Dockerfile` installiert editable (`pip install -e`), damit `app` aus `/app/app`
+    importiert wird und `ALEMBIC_DIR` auf `/app/alembic` zeigt. Neuer pytest-Test prüft,
+    dass das Migrationsverzeichnis gefunden wird (Head `0001`); läuft auch im Container grün.
