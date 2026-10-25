@@ -7,7 +7,13 @@ Lies diese Datei vollständig, bevor du etwas änderst.
 ## Grundprinzip: Die Definition von „fertig" gehört dem Menschen
 
 - Eine Spec ist **fertig**, wenn alle Robot-Framework-Tests mit ihrem Tag
-  (`spec-NNN`) grün sind, `make test` grün ist und `make lint` keine Fehler meldet.
+  (`spec-NNN`) **ohne** Tag `llm` grün sind (`make acceptance SPEC=NNN`),
+  `make test` grün ist und `make lint` keine Fehler meldet.
+- Tests mit Tag `llm` laufen gegen ein echtes, nicht deterministisches Sprachmodell.
+  Sie sind **kein Merge-Kriterium**, sondern eine Qualitätsmessung: lokal mit
+  `make acceptance-llm` ausführen und das Ergebnis (z. B. 9/11) im Factory-Log und
+  im PR dokumentieren. Systematisch gemessen wird die Antwortqualität mit
+  Schwellenwerten in Spec 007 (`make eval MODUS=voll`).
 - **Du änderst niemals** Dateien unter `tests/acceptance/`, `eval/fragen.yaml`,
   `.claude/` oder diese Datei – auch nicht über die Shell (`sed`, `git checkout` usw.).
   Diese Dateien sind die Abnahmekriterien. Hältst du einen Test für falsch,
