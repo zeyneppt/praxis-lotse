@@ -93,6 +93,8 @@ Vorlage:
     Werkzeug nutzt) bleibt als **bewusste Abweichung** von „Das LLM entscheidet selbst".
     Begründung: Antworten sollen sich immer auf Werkzeugergebnisse stützen; das ist wichtiger
     als die freie Werkzeugwahl. In den Umsetzungsnotizen von Spec 004 vermerkt.
+  - Nach Review Runde 2: Status zurück auf `in Arbeit`, sonst keine Änderung. Das weitere
+    Vorgehen bei den `llm`-Tests (Modell, Abnahme, Nachfordern der Quellenzeile) ist offen.
 - Review-Ergebnis Runde 1: Änderungen nötig, 1 blockierender Punkt:
   - Fehlte die Quellenzeile, wurden alle gelieferten Dokumente zu Quellen – auch bei
     „Dazu habe ich keine Informationen gefunden" (verstößt gegen „gestützt"). Mein Fehler:
@@ -112,6 +114,12 @@ Vorlage:
   - Kontrolllauf `llm`-Tests danach: 9/11. „Wissensfrage …" scheiterte, weil das Modell die
     Quellenzeile wegließ (`quellen: []`) – Preis der strikten Regel; vorher hätte der Rückfall
     die Quelle geliefert. „Unbekanntes …" wie bisher (kein Verweis aufs Telefon).
+- Review-Ergebnis Runde 2: Änderungen nötig, 1 blockierender Punkt: Status `fertig` war
+  falsch, weil die `llm`-Tests mit Tag `spec-004` nicht grün sind (9/11). Mein Fehler: Ich
+  hatte „fertig" nur an `make acceptance` (ohne `llm`) festgemacht, CLAUDE.md verlangt
+  aber alle Tests mit dem Tag. Status zurückgesetzt. Hinweise (nur letzte Zeile als Quellenzeile,
+  Titel mit Komma, Text-Werkzeugaufrufe ab Spec 005 neu bewerten, `max_retries=1` bei
+  Anthropic, Nutzernachricht ungefiltert ans LLM bis Spec 006, 500 bei DB-Fehler) offen.
 
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 
