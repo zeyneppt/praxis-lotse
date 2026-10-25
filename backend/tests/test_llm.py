@@ -22,6 +22,7 @@ from app.llm.openai_compat import (
 from app.werkzeuge import STANDORTE_SUCHEN
 
 Handler = Callable[[httpx2.Request], httpx2.Response]
+NAMEN = {"standorte_suchen", "wissen_suchen"}
 
 VERLAUF: list[Message] = [
     UserMessage("Wo in Erlangen?"),
@@ -168,6 +169,16 @@ def test_openai_provider_erkennt_werkzeugaufruf_im_text() -> None:
     ]
 
 
+def test_werkzeugaufruf_im_text_zaehlt_nicht_ohne_erlaubte_werkzeuge() -> None:
+    inhalt = '{"name": "standorte_suchen", "arguments": {}}'
+    provider = openai_provider(lambda r: openai_antwort({"role": "assistant", "content": inhalt}))
+
+    antwort = provider.complete("SYS", [UserMessage("Hi")], [STANDORTE_SUCHEN], False)
+
+    assert antwort.tool_calls == []
+    assert antwort.text == inhalt
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -176,32 +187,38 @@ def test_openai_provider_erkennt_werkzeugaufruf_im_text() -> None:
         '<tool_call>{"arguments": {}}</tool_call>',
         '<tool_call>["liste"]</tool_call>',
         'Ein Objekt {"name": "Erlangen"} ohne Argumente ist kein Aufruf.',
+        'Beispiel: {"name": "loesche_alles", "arguments": {}} (kein angebotenes Werkzeug)',
     ],
 )
 def test_parse_text_tool_calls_ignoriert_unbrauchbares(text: str) -> None:
-    assert parse_text_tool_calls(text) == []
+    assert parse_text_tool_calls(text, NAMEN) == []
 
 
 def test_parse_text_tool_calls_mit_verstuemmeltem_tag() -> None:
     # So von qwen2.5:7b über Ollama beobachtet: das öffnende Tag als Fantasiewort.
     text = 'onaut\n{"name": "standorte_suchen", "arguments": {"ort": "Schwabach"}}\n</tool_call>'
-    calls = parse_text_tool_calls(text)
+    calls = parse_text_tool_calls(text, NAMEN)
     assert [(c.name, json.loads(c.arguments)) for c in calls] == [
         ("standorte_suchen", {"ort": "Schwabach"})
     ]
 
 
 def test_parse_text_tool_calls_mehrere_und_kaputte_dazwischen() -> None:
-    text = '{"name": "a", "arguments": {}} {kaputt {"name": "b", "arguments": {"x": {"y": 1}}}'
-    assert [(c.name, c.arguments) for c in parse_text_tool_calls(text)] == [
-        ("a", "{}"),
-        ("b", '{"x": {"y": 1}}'),
+    text = (
+        '{"name": "wissen_suchen", "arguments": {}} {kaputt '
+        '{"name": "standorte_suchen", "arguments": {"x": {"y": 1}}}'
+    )
+    assert [(c.name, c.arguments) for c in parse_text_tool_calls(text, NAMEN)] == [
+        ("wissen_suchen", "{}"),
+        ("standorte_suchen", '{"x": {"y": 1}}'),
     ]
 
 
 def test_parse_text_tool_calls_mit_argumenten_als_text() -> None:
-    calls = parse_text_tool_calls('<tool_call>{"name": "x", "arguments": "{}"}</tool_call>')
-    assert [(c.name, c.arguments) for c in calls] == [("x", "{}")]
+    calls = parse_text_tool_calls(
+        '<tool_call>{"name": "wissen_suchen", "arguments": "{}"}</tool_call>', NAMEN
+    )
+    assert [(c.name, c.arguments) for c in calls] == [("wissen_suchen", "{}")]
 
 
 @pytest.mark.parametrize("status", [429, 500, 503])

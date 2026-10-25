@@ -130,6 +130,10 @@ Nachträge zum Plan (aus den Läufen gegen Ollama, Details im Factory-Log):
   (`{"name": …, "arguments": …}`, mit oder ohne `<tool_call>`-Tag), werden erkannt.
 - `LLM_TIMEOUT_SECONDS` Standard 60 (lokal ~30 s pro Antwortrunde mit qwen2.5:7b).
 
-Ergebnis: `make lint` grün, `make test` 151/151 (lokal und im Container),
+- Quellen nur aus der Quellenzeile des Modells (ganze Einträge); fehlt sie oder passt kein
+  Eintrag, ist `quellen` leer (nach Review). Der Fake-Provider schreibt die Zeile selbst.
+
+Ergebnis: `make lint` grün, `make test` 158/158 (lokal und im Container),
 `make acceptance SPEC=004` 7/7, `make acceptance` 30/30. Zusätzlich `llm`-Tests gegen
-Ollama (qwen2.5:7b): letzte zwei Läufe 10/11 und 11/11.
+Ollama (qwen2.5:7b): vor dem Review 10/11 und 11/11, nach der strikten Quellenregel 9/11
+(Modell lässt die Quellenzeile manchmal weg).

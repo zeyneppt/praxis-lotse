@@ -97,16 +97,18 @@ class Werkzeugkasten:
             return _fehler(
                 call, f"Unbekanntes Werkzeug '{call.name}'. Verfügbar: {', '.join(namen)}"
             )
+        modell = StandorteSuchenArgs if call.name == STANDORTE_SUCHEN.name else WissenSuchenArgs
         try:
-            argumente = _parse_arguments(call.arguments)
-            if call.name == STANDORTE_SUCHEN.name:
-                inhalt = self._standorte_suchen(StandorteSuchenArgs.model_validate(argumente))
-            else:
-                inhalt = self._wissen_suchen(WissenSuchenArgs.model_validate(argumente))
+            args = modell.model_validate(_parse_arguments(call.arguments))
         except (ValueError, ValidationError) as fehler:
             # ValidationError und JSONDecodeError sind beides ValueErrors; die Meldung
-            # enthält keine Nutzerdaten, nur Feldnamen und Fehlertypen.
+            # enthält keine Nutzerdaten, nur Feldnamen und Fehlertypen. Fehler bei der
+            # Ausführung (Datenbank, Embeddings) sind keine Argumentfehler und fliegen weiter.
             return _fehler(call, f"Ungültige Argumente: {_kurzfassung(fehler)}")
+        if isinstance(args, StandorteSuchenArgs):
+            inhalt = self._standorte_suchen(args)
+        else:
+            inhalt = self._wissen_suchen(args)
         return ToolResult(
             call_id=call.id, name=call.name, content=json.dumps(inhalt, ensure_ascii=False)
         )

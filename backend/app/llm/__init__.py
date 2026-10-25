@@ -50,10 +50,11 @@ def check_provider(provider: LlmProvider, settings: Settings) -> None:
     try:
         provider.check_available()
     except LlmError as fehler:
+        ort = f" unter {settings.ollama_base_url}" if settings.llm_provider == "ollama" else ""
         logger.warning(
-            "LLM-Provider %s unter %s nicht erreichbar (%s). Chat-Anfragen liefern "
-            'kategorie "fehler", bis der Dienst läuft.',
+            'LLM-Provider %s%s nicht erreichbar (%s). Chat-Anfragen liefern kategorie "fehler", '
+            "bis der Dienst läuft.",
             settings.llm_provider,
-            settings.ollama_base_url,
+            ort,
             fehler,
         )

@@ -13,7 +13,7 @@ from app.api_chat import router as chat_router
 from app.api_standorte import router as standorte_router
 from app.api_wissen import router as wissen_router
 from app.chat import load_system_prompt
-from app.config import LlmProvider, Settings, get_settings
+from app.config import LlmProviderName, Settings, get_settings
 from app.db import database_reachable, run_migrations
 from app.embeddings import FastEmbedder
 from app.llm import LlmConfigError, check_provider, create_provider
@@ -58,7 +58,7 @@ app.include_router(chat_router)
 class HealthResponse(BaseModel):
     status: str
     datenbank: str
-    llm_provider: LlmProvider
+    llm_provider: LlmProviderName
 
 
 @app.get("/api/health", response_model=HealthResponse)

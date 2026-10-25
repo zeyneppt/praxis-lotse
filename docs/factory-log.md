@@ -54,8 +54,9 @@ Vorlage:
     SDK-Wiederholungen: Ollama 0, Anthropic 1.
   - **Quellen** („gegeben **und** gestützt"): Das Modell nennt in einer letzten Zeile
     `Quellen: <dokument>, …`; der Server entfernt die Zeile und übernimmt nur Dokumente, die
-    das Modell tatsächlich bekommen hat (Dateiname oder Titel). `Quellen: keine` → `[]`.
-    Fehlt die Zeile oder passt sie zu keinem Dokument, zählen alle gelieferten Dokumente.
+    das Modell tatsächlich bekommen hat und die als ganzer Eintrag (Dateiname oder Titel)
+    genannt sind. Fehlt die Zeile oder passt kein Eintrag → `quellen: []` (nach Review, siehe
+    unten). Der Fake-Provider schreibt seine Quellenzeile (Dokumente aller Treffer) selbst.
     `standorte.json` gilt als geliefert, wenn `standorte_suchen` mindestens einen Standort fand.
   - **Rückfallsuche:** Antwortet das Modell in der ersten Runde ohne Werkzeug, verwirft der
     Server die Antwort, ruft `wissen_suchen(frage=<Nachricht>)` auf und lässt das Modell
@@ -92,7 +93,25 @@ Vorlage:
     Werkzeug nutzt) bleibt als **bewusste Abweichung** von „Das LLM entscheidet selbst".
     Begründung: Antworten sollen sich immer auf Werkzeugergebnisse stützen; das ist wichtiger
     als die freie Werkzeugwahl. In den Umsetzungsnotizen von Spec 004 vermerkt.
-- Review-Ergebnis: steht aus.
+- Review-Ergebnis Runde 1: Änderungen nötig, 1 blockierender Punkt:
+  - Fehlte die Quellenzeile, wurden alle gelieferten Dokumente zu Quellen – auch bei
+    „Dazu habe ich keine Informationen gefunden" (verstößt gegen „gestützt"). Mein Fehler:
+    Ich hatte den Rückfall als Annahme festgelegt, statt die Spec-Regel strikt umzusetzen.
+    Behoben: ohne passende Zeile `[]`; Abgleich pro Eintrag statt über Teilstrings.
+    Messung vorher gegen Ollama: qwen2.5:7b schreibt die Zeile in 5 von 6 Antworten.
+  - Hinweise ebenfalls umgesetzt: Text-Werkzeugaufrufe nur mit Namen eines angebotenen
+    Werkzeugs und nur in Runden mit erlaubten Werkzeugen; `try` in `werkzeuge.py` nur um
+    Parsen/Validieren (Ausführungsfehler fliegen weiter); höchstens 10 000 Sitzungen
+    (älteste unbenutzte fällt weg); Startwarnung nennt die URL nur bei `ollama`;
+    Literal `LlmProvider` → `LlmProviderName` (Verwechslung mit dem Protocol).
+  - Nicht umgesetzt: Rückfallsuche wählt immer `wissen_suchen`, auch bei Standortfragen
+    (vom Menschen so entschieden; eine Auswahl wäre wieder eine Heuristik).
+    21 Nachrichten ans Modell (20 im Verlauf + neue) – so gelassen.
+  - `make lint` grün, `make test` 158/158 (lokal und im Container), `make acceptance SPEC=004`
+    7/7, `make acceptance` 30/30.
+  - Kontrolllauf `llm`-Tests danach: 9/11. „Wissensfrage …" scheiterte, weil das Modell die
+    Quellenzeile wegließ (`quellen: []`) – Preis der strikten Regel; vorher hätte der Rückfall
+    die Quelle geliefert. „Unbekanntes …" wie bisher (kein Verweis aufs Telefon).
 
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 

@@ -9,6 +9,9 @@ from app.llm.base import AssistantMessage, Message, UserMessage
 
 MAX_NACHRICHTEN = 20
 ABLAUF_SEKUNDEN = 30 * 60
+# Schutz vor beliebig vielen Sitzungen (jede UUID legt eine an); darüber fällt die
+# am längsten unbenutzte weg.
+MAX_SITZUNGEN = 10_000
 
 
 @dataclass
@@ -28,10 +31,12 @@ class SitzungsSpeicher:
         self,
         max_nachrichten: int = MAX_NACHRICHTEN,
         ablauf_sekunden: float = ABLAUF_SEKUNDEN,
+        max_sitzungen: int = MAX_SITZUNGEN,
         uhr: Callable[[], float] = time.monotonic,
     ) -> None:
         self._max = max_nachrichten
         self._ablauf = ablauf_sekunden
+        self._max_sitzungen = max_sitzungen
         self._uhr = uhr
         self._sitzungen: dict[str, _Sitzung] = {}
         self._lock = threading.Lock()
@@ -47,6 +52,9 @@ class SitzungsSpeicher:
 
     def speichern(self, sitzung_id: str, nachricht: str, antwort: str) -> None:
         with self._lock:
+            if sitzung_id not in self._sitzungen and len(self._sitzungen) >= self._max_sitzungen:
+                aelteste = min(self._sitzungen, key=lambda s: self._sitzungen[s].zuletzt)
+                del self._sitzungen[aelteste]
             sitzung = self._sitzungen.setdefault(sitzung_id, _Sitzung(zuletzt=self._uhr()))
             sitzung.zuletzt = self._uhr()
             sitzung.nachrichten += [UserMessage(nachricht), AssistantMessage(antwort)]

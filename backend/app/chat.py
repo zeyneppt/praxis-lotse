@@ -31,7 +31,7 @@ LIMIT_MELDUNG = "Werkzeuglimit erreicht. Antworte jetzt mit den vorhandenen Erge
 
 # Letzte Zeile „Quellen: …", auch mit Markdown-Fettdruck oder als „Quelle:".
 _QUELLEN_ZEILE = re.compile(r"^[ \t>*_-]*quellen?[*_]*[ \t]*:(?P<inhalt>[^\n]*)$", re.I | re.M)
-_KEINE = re.compile(r"^\W*(keine?|-|–|none)?\W*$", re.I)
+_EINTRAG_RAND = " \t*_`'\"()[]<>."
 
 Kategorie = Literal["normal", "notfall", "fehler"]
 
@@ -68,22 +68,24 @@ def _limit_ergebnis(call: ToolCall) -> ToolResult:
 def extract_quellen(antwort: str, gelieferte: dict[str, str]) -> tuple[str, list[Quelle]]:
     """Trennt die Quellenzeile von der Antwort und ordnet sie gelieferten Dokumenten zu.
 
-    Nur Dokumente, die das Modell tatsächlich bekommen hat, können Quelle sein; jedes
-    nur einmal. „Quellen: keine" ergibt keine Quellen. Fehlt die Zeile oder passt sie zu
-    keinem Dokument, zählen alle gelieferten Dokumente (das Modell hat sie bekommen,
-    aber die Angabe vergessen oder verunstaltet).
+    Quelle ist nur, was das Modell bekommen hat **und** in der Zeile nennt (Dateiname oder
+    Titel, Einträge durch Komma getrennt), jedes Dokument nur einmal. Fehlt die Zeile oder
+    passt kein Eintrag, gibt es keine Quellen: Lieber keine als eine falsche Quellenangabe.
     """
     zeilen = list(_QUELLEN_ZEILE.finditer(antwort))
-    alle = [Quelle(dokument=d, titel=t) for d, t in gelieferte.items()]
     if not zeilen:
-        return antwort.strip(), alle
+        return antwort.strip(), []
     letzte = zeilen[-1]
     text = (antwort[: letzte.start()] + antwort[letzte.end() :]).strip()
-    inhalt = letzte.group("inhalt").casefold()
-    if _KEINE.match(inhalt):
-        return text, []
-    genannt = [q for q in alle if q.dokument.casefold() in inhalt or q.titel.casefold() in inhalt]
-    return text, genannt or alle
+    eintraege = {
+        e.strip(_EINTRAG_RAND).casefold() for e in re.split(r"[,;]", letzte.group("inhalt"))
+    }
+    quellen = [
+        Quelle(dokument=d, titel=t)
+        for d, t in gelieferte.items()
+        if d.casefold() in eintraege or t.casefold() in eintraege
+    ]
+    return text, quellen
 
 
 def run_chat(

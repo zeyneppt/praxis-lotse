@@ -170,6 +170,17 @@ def test_ungueltige_werkzeugaufrufe_werden_fehlerergebnisse(
     assert k.gelieferte_dokumente == {}
 
 
+def test_fehler_bei_der_ausfuehrung_sind_keine_argumentfehler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def kaputt(session: Session, query_embedding: list[float], k: int) -> list[Treffer]:
+        raise ValueError("Datenbank kaputt")
+
+    monkeypatch.setattr(werkzeuge, "search", kaputt)
+    with pytest.raises(ValueError, match="Datenbank kaputt"):
+        kasten().execute(call("wissen_suchen", '{"frage": "x"}'))
+
+
 # --- Quellen -----------------------------------------------------------------
 
 GELIEFERT = {
@@ -195,15 +206,32 @@ GELIEFERT = {
         ("Siehe oben.\nQuelle: Standortverzeichnis", "Siehe oben.", ["standorte.json"]),
         ("Nichts gefunden.\nQuellen: keine", "Nichts gefunden.", []),
         ("Nichts gefunden.\nQuellen: –", "Nichts gefunden.", []),
-        # Ohne Zeile oder mit erfundenem Dokument: alle gelieferten.
-        ("Ohne Angabe.", "Ohne Angabe.", list(GELIEFERT)),
-        ("Erfunden.\nQuellen: wikipedia.md", "Erfunden.", list(GELIEFERT)),
+        ("Teils.\nQuellen: erster-besuch.md, keine", "Teils.", ["erster-besuch.md"]),
+        # Ohne Zeile oder mit erfundenem Dokument: keine Quellen statt falscher.
+        ("Ohne Angabe.", "Ohne Angabe.", []),
+        ("Erfunden.\nQuellen: wikipedia.md", "Erfunden.", []),
+        # Nur ganze Einträge zählen, keine Teilstrings von Titeln oder Dateinamen.
+        ("Teilstring.\nQuellen: Besuch, standorte", "Teilstring.", []),
     ],
 )
 def test_extract_quellen(antwort: str, text: str, dokumente: list[str]) -> None:
     rest, quellen = extract_quellen(antwort, GELIEFERT)
     assert rest == text
     assert [q.dokument for q in quellen] == dokumente
+
+
+def test_nichts_gefunden_ohne_quellenzeile_hat_keine_quellen(suche: list[Treffer]) -> None:
+    provider = ScriptedProvider(
+        [
+            AssistantMessage("", [call("wissen_suchen", '{"frage": "Akupunktur?"}')]),
+            AssistantMessage("Dazu habe ich leider keine Informationen gefunden."),
+        ]
+    )
+
+    ergebnis = run_chat(provider, "s", [], "Akupunktur?", kasten())
+
+    assert ergebnis.werkzeugaufrufe == 1
+    assert ergebnis.quellen == []
 
 
 def test_extract_quellen_nur_gelieferte_dokumente() -> None:
@@ -238,6 +266,7 @@ class ScriptedProvider:
 def test_fake_provider_nennt_besten_treffer(suche: list[Treffer]) -> None:
     ergebnis = run_chat(FakeProvider(), "system", [], "Wie sage ich ab?", kasten())
 
+    # Die Quellenzeile des Fake-Providers wird aus der Antwort entfernt.
     assert ergebnis.antwort == "[Testmodus] Gefunden in: Termine verschieben und absagen"
     assert ergebnis.kategorie == "normal"
     assert ergebnis.quellen == [
@@ -398,6 +427,21 @@ def test_sitzung_laeuft_nach_30_minuten_inaktivitaet_ab() -> None:
     uhr.jetzt += 30 * 60 + 1
     assert speicher.verlauf("s") == []
     assert len(speicher) == 0
+
+
+def test_sitzungsanzahl_ist_begrenzt() -> None:
+    uhr = Uhr()
+    speicher = SitzungsSpeicher(max_sitzungen=2, uhr=uhr)
+    for sitzung_id in ["a", "b"]:
+        speicher.speichern(sitzung_id, "frage", "antwort")
+        uhr.jetzt += 1
+    speicher.verlauf("a")  # a ist jetzt jünger als b
+
+    speicher.speichern("c", "frage", "antwort")
+
+    assert len(speicher) == 2
+    assert speicher.verlauf("b") == []
+    assert len(speicher.verlauf("a")) == 2
 
 
 def test_unbekannte_sitzung_hat_leeren_verlauf() -> None:

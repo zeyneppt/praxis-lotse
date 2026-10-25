@@ -32,7 +32,8 @@ def _neue_id() -> str:
     return f"call_{uuid.uuid4().hex}"
 
 
-def parse_text_tool_calls(text: str) -> list[ToolCall]:
+def parse_text_tool_calls(text: str, namen: set[str]) -> list[ToolCall]:
+    """Nur Objekte mit dem Namen eines angebotenen Werkzeugs zählen als Aufruf."""
     calls = []
     position = text.find("{")
     while position != -1:
@@ -41,7 +42,7 @@ def parse_text_tool_calls(text: str) -> list[ToolCall]:
         except json.JSONDecodeError:
             position = text.find("{", position + 1)
             continue
-        if isinstance(daten, dict) and isinstance(daten.get("name"), str) and "arguments" in daten:
+        if isinstance(daten, dict) and daten.get("name") in namen and "arguments" in daten:
             argumente = daten["arguments"]
             if not isinstance(argumente, str):
                 argumente = json.dumps(argumente, ensure_ascii=False)
@@ -139,8 +140,9 @@ class OpenAICompatProvider:
             if call.type == "function"
         ]
         text = nachricht.content or ""
-        if not tool_calls and (text_calls := parse_text_tool_calls(text)):
-            return AssistantMessage(text="", tool_calls=text_calls)
+        if allow_tools and not tool_calls:
+            if text_calls := parse_text_tool_calls(text, {tool.name for tool in tools}):
+                return AssistantMessage(text="", tool_calls=text_calls)
         return AssistantMessage(text=text, tool_calls=tool_calls)
 
     def check_available(self) -> None:

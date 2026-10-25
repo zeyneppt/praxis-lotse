@@ -8,15 +8,19 @@ WISSEN_WERKZEUG = "wissen_suchen"
 NICHTS_GEFUNDEN = "[Testmodus] Nichts gefunden"
 
 
-def _bester_titel(ergebnis: ToolResult) -> str | None:
+def _treffer(ergebnis: ToolResult) -> list[dict[str, str]]:
     if ergebnis.is_error:
-        return None
-    treffer = json.loads(ergebnis.content).get("treffer") or []
-    return str(treffer[0]["titel"]) if treffer else None
+        return []
+    treffer: list[dict[str, str]] = json.loads(ergebnis.content).get("treffer") or []
+    return treffer
 
 
 class FakeProvider:
-    """Ruft immer `wissen_suchen` mit der Nutzernachricht auf und nennt den besten Treffer."""
+    """Ruft immer `wissen_suchen` mit der Nutzernachricht auf und nennt den besten Treffer.
+
+    Die Quellen (Dokumente aller Treffer) gibt er wie ein echtes Modell in einer letzten
+    Zeile `Quellen: …` an; der Server entfernt sie aus der Antwort.
+    """
 
     def complete(
         self,
@@ -34,10 +38,11 @@ class FakeProvider:
                     ToolCall(id=f"fake-{len(messages)}", name=WISSEN_WERKZEUG, arguments=argumente)
                 ],
             )
-        if isinstance(letzte, ToolResult):
-            titel = _bester_titel(letzte)
-            if titel is not None:
-                return AssistantMessage(text=f"[Testmodus] Gefunden in: {titel}")
+        if isinstance(letzte, ToolResult) and (treffer := _treffer(letzte)):
+            dokumente = ", ".join(dict.fromkeys(t["dokument"] for t in treffer))
+            return AssistantMessage(
+                text=f"[Testmodus] Gefunden in: {treffer[0]['titel']}\nQuellen: {dokumente}"
+            )
         return AssistantMessage(text=NICHTS_GEFUNDEN)
 
     def check_available(self) -> None:
