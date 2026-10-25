@@ -24,13 +24,9 @@
     ],
     "deny": [
       "Edit(./tests/acceptance/**)",
-      "Write(./tests/acceptance/**)",
       "Edit(./eval/fragen.yaml)",
-      "Write(./eval/fragen.yaml)",
       "Edit(./.claude/**)",
-      "Write(./.claude/**)",
       "Edit(./CLAUDE.md)",
-      "Write(./CLAUDE.md)",
       "Read(./.env)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",

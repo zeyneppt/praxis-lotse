@@ -65,3 +65,8 @@ Vorlage:
   - `backend/Dockerfile` installiert editable (`pip install -e`), damit `app` aus `/app/app`
     importiert wird und `ALEMBIC_DIR` auf `/app/alembic` zeigt. Neuer pytest-Test prüft,
     dass das Migrationsverzeichnis gefunden wird (Head `0001`); läuft auch im Container grün.
+
+## Nachtrag (Mensch) – Spec 001
+
+- Der Agent wollte beim Einlesen `.env` mit `.env.example` vergleichen. Die Regel `Read(./.env)` in `.claude/settings.json` hat das blockiert – Schutz wirkt wie vorgesehen.
+- Redundante `Write(...)`-Deny-Regeln entfernt (Claude Code deckt Schreiben über `Edit(...)` ab).
