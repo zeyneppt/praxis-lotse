@@ -1,0 +1,150 @@
+{
+  "_hinweis": "Fiktive Beispieldaten. Name, Adressen und Telefonnummern sind erfunden.",
+  "verbund": "MVZ Musterverbund Franken",
+  "standorte": [
+    {
+      "id": "std-001",
+      "name": "MVZ Nürnberg Mitte",
+      "ort": "Nürnberg",
+      "stadtteil": "Altstadt",
+      "adresse": "Musterplatz 1",
+      "plz": "90402",
+      "telefon": "+49 911 0000001",
+      "fachrichtungen": ["Gastroenterologie", "Endoskopie", "Innere Medizin"],
+      "oeffnungszeiten": {"mo": "07:30-16:00", "di": "07:30-16:00", "mi": "07:30-13:00", "do": "07:30-18:00", "fr": "07:30-13:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-002",
+      "name": "MVZ Nürnberg Nord",
+      "ort": "Nürnberg",
+      "stadtteil": "Maxfeld",
+      "adresse": "Beispielstraße 12",
+      "plz": "90409",
+      "telefon": "+49 911 0000002",
+      "fachrichtungen": ["Allgemeinmedizin", "Gynäkologie"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 14:00-18:00", "di": "08:00-12:00, 14:00-18:00", "mi": "08:00-12:00", "do": "08:00-12:00, 14:00-18:00", "fr": "08:00-12:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-003",
+      "name": "MVZ Nürnberg Süd",
+      "ort": "Nürnberg",
+      "stadtteil": "Langwasser",
+      "adresse": "Probeweg 7",
+      "plz": "90471",
+      "telefon": "+49 911 0000003",
+      "fachrichtungen": ["Neurologie", "Innere Medizin"],
+      "oeffnungszeiten": {"mo": "08:00-17:00", "di": "08:00-17:00", "mi": "08:00-12:00", "do": "08:00-17:00", "fr": "08:00-12:00"},
+      "barrierefrei": false
+    },
+    {
+      "id": "std-004",
+      "name": "MVZ Fürth Zentrum",
+      "ort": "Fürth",
+      "stadtteil": "Innenstadt",
+      "adresse": "Testallee 3",
+      "plz": "90762",
+      "telefon": "+49 911 0000004",
+      "fachrichtungen": ["Gastroenterologie", "Endoskopie"],
+      "oeffnungszeiten": {"mo": "07:30-15:00", "di": "07:30-15:00", "mi": "07:30-15:00", "do": "07:30-15:00", "fr": "07:30-12:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-005",
+      "name": "MVZ Nürnberg West",
+      "ort": "Nürnberg",
+      "stadtteil": "Gostenhof",
+      "adresse": "Musterring 22",
+      "plz": "90429",
+      "telefon": "+49 911 0000005",
+      "fachrichtungen": ["Allgemeinmedizin", "Innere Medizin"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 15:00-18:00", "di": "08:00-12:00, 15:00-18:00", "mi": "08:00-12:00", "do": "08:00-12:00, 15:00-18:00", "fr": "08:00-12:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-006",
+      "name": "MVZ Stein",
+      "ort": "Stein",
+      "stadtteil": null,
+      "adresse": "Beispielgasse 4",
+      "plz": "90547",
+      "telefon": "+49 911 0000006",
+      "fachrichtungen": ["Allgemeinmedizin", "Gynäkologie"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 14:00-17:00", "di": "08:00-12:00", "mi": "08:00-12:00", "do": "08:00-12:00, 14:00-17:00", "fr": "08:00-12:00"},
+      "barrierefrei": false
+    },
+    {
+      "id": "std-007",
+      "name": "MVZ Schwabach",
+      "ort": "Schwabach",
+      "stadtteil": null,
+      "adresse": "Probestraße 18",
+      "plz": "91126",
+      "telefon": "+49 9122 0000007",
+      "fachrichtungen": ["Allgemeinmedizin", "Kardiologie"],
+      "oeffnungszeiten": {"mo": "08:00-17:00", "di": "08:00-17:00", "mi": "08:00-13:00", "do": "08:00-17:00", "fr": "08:00-13:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-008",
+      "name": "MVZ Feucht",
+      "ort": "Feucht",
+      "stadtteil": null,
+      "adresse": "Testweg 9",
+      "plz": "90537",
+      "telefon": "+49 9128 0000008",
+      "fachrichtungen": ["Allgemeinmedizin", "Innere Medizin"],
+      "oeffnungszeiten": {"mo": "07:30-12:00, 15:00-18:00", "di": "07:30-12:00", "mi": "07:30-12:00", "do": "07:30-12:00, 15:00-18:00", "fr": "07:30-12:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-009",
+      "name": "MVZ Erlangen",
+      "ort": "Erlangen",
+      "stadtteil": null,
+      "adresse": "Musterstraße 40",
+      "plz": "91052",
+      "telefon": "+49 9131 0000009",
+      "fachrichtungen": ["Gastroenterologie", "Neurologie"],
+      "oeffnungszeiten": {"mo": "08:00-16:00", "di": "08:00-16:00", "mi": "08:00-16:00", "do": "08:00-18:00", "fr": "08:00-13:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-010",
+      "name": "MVZ Erlangen Süd",
+      "ort": "Erlangen",
+      "stadtteil": "Bruck",
+      "adresse": "Beispielplatz 2",
+      "plz": "91058",
+      "telefon": "+49 9131 0000010",
+      "fachrichtungen": ["Gynäkologie"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 14:00-18:00", "di": "08:00-12:00", "mi": "08:00-12:00, 14:00-18:00", "do": "08:00-12:00", "fr": "08:00-12:00"},
+      "barrierefrei": true
+    },
+    {
+      "id": "std-011",
+      "name": "MVZ Zirndorf",
+      "ort": "Zirndorf",
+      "stadtteil": null,
+      "adresse": "Probegasse 5",
+      "plz": "90513",
+      "telefon": "+49 911 0000011",
+      "fachrichtungen": ["Allgemeinmedizin", "Orthopädie"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 14:00-18:00", "di": "08:00-12:00, 14:00-18:00", "mi": "08:00-12:00", "do": "08:00-12:00, 14:00-18:00", "fr": "08:00-12:00"},
+      "barrierefrei": false
+    },
+    {
+      "id": "std-012",
+      "name": "MVZ Lauf",
+      "ort": "Lauf an der Pegnitz",
+      "stadtteil": null,
+      "adresse": "Testplatz 11",
+      "plz": "91207",
+      "telefon": "+49 9123 0000012",
+      "fachrichtungen": ["Allgemeinmedizin", "Innere Medizin"],
+      "oeffnungszeiten": {"mo": "08:00-12:00, 14:00-17:00", "di": "08:00-12:00, 14:00-17:00", "mi": "08:00-12:00", "do": "08:00-12:00, 14:00-17:00", "fr": "08:00-12:00"},
+      "barrierefrei": true
+    }
+  ]
+}
