@@ -25,12 +25,15 @@ Vorlage:
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 (Abnahme 9/9 im ersten Lauf, `make acceptance` 23/23);
-  `make lint` brauchte 3 Läufe, `make test` 72/72.
+  `make lint` brauchte 3 Läufe, `make test` 74/74 (nach Review-Fix).
 - Fehler des Agenten und wie sie erkannt wurden:
   - Import-Reihenfolge in `app/main.py` (ruff I001) und eine von `ruff format` anders
     umbrochene Testsignatur – von `make lint` gefunden.
   - Falscher `type: ignore`-Code in einem pytest-Test (mypy strict meldete `no-untyped-call`);
     jetzt mit `ClauseElement` typisiert.
+  - Eine `frage` nur aus Leerzeichen lieferte 200 mit beliebigen Treffern statt 422 – derselbe
+    Fehlertyp wie in Spec 002, vom Reviewer gefunden. Behoben mit
+    `StringConstraints(strip_whitespace=True, …)`, pytest-Fälle `"   "` und `"\n\t"` ergänzt.
 - Getroffene Annahmen:
   - Neue Abhängigkeiten: `fastembed` (Spec verlangt es), `pgvector` (SQLAlchemy-Typ `Vector`
     und `cosine_distance`), `pyyaml` (YAML-Kopf), dev: `types-PyYAML`.

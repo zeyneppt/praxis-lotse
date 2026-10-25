@@ -232,6 +232,8 @@ def test_api_suche_standard_k_ist_3(
     [
         {},
         {"frage": ""},
+        {"frage": "   "},
+        {"frage": "\n\t"},
         {"frage": "a" * 501},
         {"frage": "Test", "k": 0},
         {"frage": "Test", "k": 11},

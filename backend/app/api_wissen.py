@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy.orm import Session
 
 from app.db import get_engine
@@ -28,7 +28,8 @@ DbSession = Annotated[Session, Depends(get_session)]
 
 
 class SucheAnfrage(BaseModel):
-    frage: str = Field(min_length=1, max_length=500)
+    # Nur Leerzeichen gilt als leere Frage (422), daher vor der Längenprüfung trimmen.
+    frage: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
     k: int = Field(default=3, ge=1, le=10)
 
 
