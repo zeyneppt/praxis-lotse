@@ -72,7 +72,10 @@ Vorlage:
   - Das Docker-Image wächst durch fastembed/onnxruntime und das Modell (~220 MB).
 - Eingriffe durch den Menschen:
   - keine
-- Review-Ergebnis: ausstehend
+- Review-Ergebnis: freigegeben nach 2 Runden. Runde 1: ein blockierender Punkt (Frage nur aus
+  Leerzeichen → 200 statt 422), behoben. Runde 2: keine blockierenden Punkte. Hinweise
+  (u. a. Ingest löscht alles bei fehlendem/leerem `/data/wissen`, UTF-8-BOM, `input` in
+  422-Antworten für Spec 006, fehlender Unit-Test für `ingest()`) im PR-Kommentar, nicht umgesetzt.
 
 ## Spec 002 – Standortsuche (2026-10-25)
 
