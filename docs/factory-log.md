@@ -46,6 +46,15 @@ Vorlage:
 - Offene Punkte:
   - Schwellenwerte für `antwort_korrekt`/`grenzen_eingehalten` fehlen in `fragen.yaml` (geschützt); nach den ersten echten Messungen ergänzen.
   - Lokal fehlt `robot`; temporäre venv mit Robot + RequestsLibrary, keine Browser Library.
+- Nachbesserung nach Review (Hinweise des Reviewers, auf Anweisung des Menschen umgesetzt):
+  - Schwellenwert für eine Kennzahl ohne Messwerte → `bestanden: false`, Eintrag `fehler` im Bericht, Meldung auf stderr, Exit 1.
+    „Muss berechnet werden" bestimmt `KENNZAHLEN_PRO_MODUS`; ein Schwellenwert für `antwort_korrekt` löst im Modus `retrieval` keinen Fehler aus.
+  - HTTP-Fehler: 429/502/503/504 und Verbindungsfehler werden bis zu 5-mal mit Backoff (5/10/20/40 s) wiederholt, andere 4xx sofort als Fehler gemeldet.
+    Die Ratenbegrenzung bleibt aktiv. Nach dem letzten Versuch bricht die Evaluation ab, schreibt den Bericht (betroffene Frage als nicht bestanden, `fehler` gesetzt) und endet mit Exit 1.
+    Annahme: Bei Abbruch fehlen die restlichen Fragen im Bericht (nicht als „nicht bestanden" aufgeführt).
+  - `Modus` ist `Literal["retrieval", "voll"]`; ungültiger Wert (Argument oder `EVAL_MODUS`) → argparse-Fehler, Exit 2.
+  - Fehler des Agenten: erster Patch-Versuch scheiterte, weil `ruff format` eine Textstelle umgebrochen hatte; zweiter Test-Lauf rot durch Rekursion beim Patchen von `httpx.Client` (echte Klasse vorher gemerkt).
+    11 neue pytest-Tests (327 gesamt).
 
 ## Spec 006 – Sicherheitsleitplanken und Datenschutz im Betrieb (2026-10-27)
 

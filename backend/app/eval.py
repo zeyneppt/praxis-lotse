@@ -7,20 +7,40 @@ import argparse
 import json
 import os
 import sys
+import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 import httpx
 import yaml
 
 from app.config import get_settings
 
-Modus = str
-MODI = ("retrieval", "voll")
+Modus = Literal["retrieval", "voll"]
+MODI: tuple[Modus, ...] = get_args(Modus)
 TOP_K = 3
 TIMEOUT_SEKUNDEN = 180.0
+# Kennzahlen, die ein Modus berechnen muss; ein Schwellenwert dafür ohne Messwerte ist ein Fehler.
+KENNZAHLEN_PRO_MODUS: dict[Modus, tuple[str, ...]] = {
+    "retrieval": ("retrieval_treffer_top3", "notfall_erkennung"),
+    "voll": (
+        "retrieval_treffer_top3",
+        "notfall_erkennung",
+        "antwort_korrekt",
+        "grenzen_eingehalten",
+    ),
+}
+# Die Ratenbegrenzung des Chats (60/Minute) bleibt aktiv; bei 429 warten wir ab.
+MAX_VERSUCHE = 5
+BACKOFF_SEKUNDEN = 5.0
+WIEDERHOLBARE_STATUS = frozenset({429, 502, 503, 504})
+
+
+class ApiFehler(Exception):
+    """Die API war auch nach mehreren Versuchen nicht erfolgreich erreichbar."""
 
 
 @dataclass
@@ -74,18 +94,51 @@ def unterschrittene(kennzahlen: dict[str, float], schwellenwerte: dict[str, floa
     return [n for n, s in schwellenwerte.items() if n in kennzahlen and kennzahlen[n] < s]
 
 
+def fehlende_kennzahlen(
+    kennzahlen: dict[str, float], schwellenwerte: dict[str, float], modus: Modus
+) -> list[str]:
+    """Kennzahlen mit Schwellenwert, die der Modus berechnen müsste, aber ohne Messwerte sind."""
+    return [n for n in KENNZAHLEN_PRO_MODUS[modus] if n in schwellenwerte and n not in kennzahlen]
+
+
 class Pruefer:
-    def __init__(self, client: httpx.Client) -> None:
+    def __init__(
+        self,
+        client: httpx.Client,
+        warten: Callable[[float], None] | None = None,
+        max_versuche: int = MAX_VERSUCHE,
+        backoff_sekunden: float = BACKOFF_SEKUNDEN,
+    ) -> None:
         self._client = client
+        self._warten = warten or time.sleep
+        self._max_versuche = max_versuche
+        self._backoff = backoff_sekunden
+
+    def _post(self, pfad: str, daten: dict[str, Any]) -> httpx.Response:
+        """POST mit Wiederholung bei 429/5xx und Verbindungsfehlern (exponentieller Backoff)."""
+        grund = ""
+        for versuch in range(self._max_versuche):
+            if versuch:
+                self._warten(self._backoff * 2 ** (versuch - 1))
+            try:
+                antwort = self._client.post(pfad, json=daten)
+            except httpx.TransportError as fehler:
+                grund = f"Verbindungsfehler ({type(fehler).__name__})"
+                continue
+            if antwort.status_code in WIEDERHOLBARE_STATUS:
+                grund = f"HTTP {antwort.status_code}"
+                continue
+            if antwort.is_error:
+                raise ApiFehler(f"{pfad}: HTTP {antwort.status_code}")
+            return antwort
+        raise ApiFehler(f"{pfad}: {grund} nach {self._max_versuche} Versuchen")
 
     def _suche(self, frage: str) -> list[str]:
-        antwort = self._client.post("/api/wissen/suche", json={"frage": frage, "k": TOP_K})
-        antwort.raise_for_status()
+        antwort = self._post("/api/wissen/suche", {"frage": frage, "k": TOP_K})
         return [t["dokument"] for t in antwort.json()["treffer"]]
 
     def _chat(self, frage: str) -> dict[str, Any]:
-        antwort = self._client.post("/api/chat", json={"nachricht": frage})
-        antwort.raise_for_status()
+        antwort = self._post("/api/chat", {"nachricht": frage})
         daten: dict[str, Any] = antwort.json()
         return daten
 
@@ -115,21 +168,35 @@ class Pruefer:
         return Ergebnis(frage["id"], "grenze", not verboten, details)
 
 
-def evaluiere(fragen: list[dict[str, Any]], pruefer: Pruefer, modus: Modus) -> list[Ergebnis]:
+def evaluiere(
+    fragen: list[dict[str, Any]], pruefer: Pruefer, modus: Modus
+) -> tuple[list[Ergebnis], str | None]:
+    """Gibt die Ergebnisse und ggf. den API-Fehler zurück, der die Evaluation abgebrochen hat."""
     ergebnisse: list[Ergebnis] = []
     for frage in fragen:
-        typ = frage["typ"]
-        if typ == "wissen":
-            ergebnisse.append(pruefer.retrieval(frage))
-            if modus == "voll":
-                ergebnisse.append(pruefer.antwort_enthaelt(frage))
-        elif typ == "notfall":
-            ergebnisse.append(pruefer.notfall(frage))
-        elif modus == "voll" and typ == "standort":
+        try:
+            ergebnisse.extend(_pruefe_frage(frage, pruefer, modus))
+        except ApiFehler as fehler:
+            typ = "wissen_retrieval" if frage["typ"] == "wissen" else frage["typ"]
+            ergebnisse.append(Ergebnis(frage["id"], typ, False, f"API-Fehler: {fehler}"))
+            return ergebnisse, f"Abbruch bei Frage {frage['id']}: {fehler}"
+    return ergebnisse, None
+
+
+def _pruefe_frage(frage: dict[str, Any], pruefer: Pruefer, modus: Modus) -> list[Ergebnis]:
+    typ = frage["typ"]
+    if typ == "wissen":
+        ergebnisse = [pruefer.retrieval(frage)]
+        if modus == "voll":
             ergebnisse.append(pruefer.antwort_enthaelt(frage))
-        elif modus == "voll" and typ == "grenze":
-            ergebnisse.append(pruefer.grenze(frage))
-    return ergebnisse
+        return ergebnisse
+    if typ == "notfall":
+        return [pruefer.notfall(frage)]
+    if modus == "voll" and typ == "standort":
+        return [pruefer.antwort_enthaelt(frage)]
+    if modus == "voll" and typ == "grenze":
+        return [pruefer.grenze(frage)]
+    return []
 
 
 def zusammenfassen(ergebnisse: list[Ergebnis]) -> list[Ergebnis]:
@@ -155,14 +222,23 @@ def erzeuge_bericht(
     schwellenwerte: dict[str, float],
     llm: dict[str, str],
     zeitpunkt: datetime,
+    api_fehler: str | None = None,
 ) -> dict[str, Any]:
     kennzahlen = berechne_kennzahlen(ergebnisse, modus)
+    fehler = [
+        f"Keine Messwerte für Kennzahl {n}"
+        for n in fehlende_kennzahlen(kennzahlen, schwellenwerte, modus)
+    ]
+    if api_fehler:
+        fehler.append(api_fehler)
     bericht: dict[str, Any] = {
         "modus": modus,
         "zeitpunkt": zeitpunkt.isoformat(timespec="seconds"),
         "kennzahlen": kennzahlen,
-        "bestanden": not unterschrittene(kennzahlen, schwellenwerte),
+        "bestanden": not unterschrittene(kennzahlen, schwellenwerte) and not fehler,
     }
+    if fehler:
+        bericht["fehler"] = fehler
     if modus == "voll":
         bericht.update(llm)
     bericht["fragen"] = [asdict(e) for e in zusammenfassen(ergebnisse)]
@@ -177,6 +253,7 @@ def markdown(bericht: dict[str, Any], schwellenwerte: dict[str, float]) -> str:
         f"- Zeitpunkt: {bericht['zeitpunkt']}",
         f"- Bestanden: {'ja' if bericht['bestanden'] else 'nein'}",
     ]
+    zeilen += [f"- **Fehler:** {f}" for f in bericht.get("fehler", [])]
     if bericht["modus"] == "voll":
         zeilen.append(f"- LLM: {bericht['llm_provider']} / {bericht['llm_model']}")
     zeilen += ["", "| id | typ | bestanden | Details |", "|---|---|---|---|"]
@@ -201,11 +278,16 @@ def schreibe_berichte(
     (ausgabe / "ergebnis.md").write_text(markdown(bericht, schwellenwerte), encoding="utf-8")
 
 
+def _modus(wert: str) -> Modus:
+    for modus in MODI:
+        if wert == modus:
+            return modus
+    raise argparse.ArgumentTypeError(f"Unbekannter Modus {wert!r} (erlaubt: {', '.join(MODI)})")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.eval")
-    parser.add_argument(
-        "--modus", choices=MODI, default=os.environ.get("EVAL_MODUS") or "retrieval"
-    )
+    parser.add_argument("--modus", type=_modus, default=os.environ.get("EVAL_MODUS") or "retrieval")
     args = parser.parse_args(argv)
     modus: Modus = args.modus
 
@@ -220,16 +302,20 @@ def main(argv: list[str] | None = None) -> int:
         print("Hinweis: Modus voll mit LLM_PROVIDER=fake ist nur ein Smoke-Test.", file=sys.stderr)
 
     with httpx.Client(base_url=api_url, timeout=TIMEOUT_SEKUNDEN) as client:
-        ergebnisse = evaluiere(inhalt["fragen"], Pruefer(client), modus)
+        ergebnisse, api_fehler = evaluiere(inhalt["fragen"], Pruefer(client), modus)
 
     llm = {"llm_provider": einstellungen.llm_provider, "llm_model": einstellungen.llm_model}
-    bericht = erzeuge_bericht(modus, ergebnisse, schwellenwerte, llm, datetime.now().astimezone())
+    bericht = erzeuge_bericht(
+        modus, ergebnisse, schwellenwerte, llm, datetime.now().astimezone(), api_fehler
+    )
     schreibe_berichte(ausgabe, bericht, schwellenwerte)
 
     for name, wert in bericht["kennzahlen"].items():
         print(f"{name}: {wert} (Schwellenwert {schwellenwerte.get(name, '-')})")
     for unterschritten in unterschrittene(bericht["kennzahlen"], schwellenwerte):
         print(f"Schwellenwert unterschritten: {unterschritten}", file=sys.stderr)
+    for meldung in bericht.get("fehler", []):
+        print(f"Fehler: {meldung}", file=sys.stderr)
     return 0 if bericht["bestanden"] else 1
 
 
