@@ -1,5 +1,6 @@
 """FastAPI-Anwendung des Praxis-Lotse."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,18 +12,34 @@ from pydantic import BaseModel
 
 from app.api_chat import router as chat_router
 from app.api_standorte import router as standorte_router
+from app.api_termine import router as termine_router
 from app.api_wissen import router as wissen_router
 from app.chat import load_system_prompt
 from app.config import LlmProviderName, Settings, get_settings
-from app.db import database_reachable, run_migrations
+from app.db import database_reachable, get_engine, run_migrations
 from app.embeddings import FastEmbedder
 from app.llm import LlmConfigError, check_provider, create_provider
 from app.sitzungen import SitzungsSpeicher
 from app.standorte import load_katalog
+from app.termine import SimuliertesTerminsystem, Terminsystem
 
 # Uvicorn konfiguriert nur seine eigenen Logger; ohne Root-Handler fehlten die App-Logs.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+LOESCHLAUF_INTERVALL_SEKUNDEN = 3600
+
+
+async def loeschfrist_durchsetzen(terminsystem: Terminsystem) -> None:
+    """Löscht alte Terminanfragen beim Start und danach stündlich (Spec 005)."""
+    while True:
+        try:
+            anzahl = await asyncio.to_thread(terminsystem.alte_anfragen_loeschen)
+            logger.info("Löschfrist: %d alte Terminanfragen gelöscht", anzahl)
+        except Exception as fehler:
+            # Nur der Typ: Die Meldung könnte Werte aus der Tabelle enthalten.
+            logger.warning("Löschfrist: Löschlauf fehlgeschlagen (%s)", type(fehler).__name__)
+        await asyncio.sleep(LOESCHLAUF_INTERVALL_SEKUNDEN)
 
 
 @asynccontextmanager
@@ -38,9 +55,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.sitzungen = SitzungsSpeicher()
     run_migrations()
     app.state.standort_katalog = load_katalog(settings.data_dir)
+    app.state.terminsystem = SimuliertesTerminsystem(app.state.standort_katalog, get_engine())
+    loeschjob = asyncio.create_task(loeschfrist_durchsetzen(app.state.terminsystem))
     # Beim Start laden, nicht beim ersten Request (das Modell liegt seit dem Build lokal).
     app.state.embedder = FastEmbedder(settings.embedding_model)
     yield
+    loeschjob.cancel()
 
 
 app = FastAPI(title="Praxis-Lotse", lifespan=lifespan)
@@ -53,6 +73,7 @@ app.add_middleware(
 app.include_router(standorte_router)
 app.include_router(wissen_router)
 app.include_router(chat_router)
+app.include_router(termine_router)
 
 
 class HealthResponse(BaseModel):

@@ -2,17 +2,19 @@
 
 import logging
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, StringConstraints
 
 from app.api_standorte import Katalog
+from app.api_termine import TerminsystemDep
 from app.api_wissen import DbSession, get_embedder
 from app.chat import FEHLER_ANTWORT, KI_HINWEIS, Kategorie, run_chat
 from app.embeddings import Embedder
 from app.llm.base import LlmError, LlmProvider
 from app.sitzungen import SitzungsSpeicher
+from app.termine import Slot
 from app.werkzeuge import Werkzeugkasten
 
 logger = logging.getLogger(__name__)
@@ -49,12 +51,17 @@ class QuelleAntwort(BaseModel):
     titel: str
 
 
+class TerminVorschlag(BaseModel):
+    typ: Literal["termin_vorschlag"] = "termin_vorschlag"
+    slots: list[Slot]
+
+
 class ChatAntwort(BaseModel):
     sitzung_id: str
     antwort: str
     kategorie: Kategorie
     quellen: list[QuelleAntwort]
-    aktion: dict[str, Any] | None = None
+    aktion: TerminVorschlag | None = None
     ki_hinweis: str = KI_HINWEIS
 
 
@@ -67,9 +74,10 @@ def chat(
     provider: Annotated[LlmProvider, Depends(get_provider)],
     system_prompt: Annotated[str, Depends(get_system_prompt)],
     sitzungen: Annotated[SitzungsSpeicher, Depends(get_sitzungen)],
+    terminsystem: TerminsystemDep,
 ) -> ChatAntwort:
     sitzung_id = str(anfrage.sitzung_id or uuid.uuid4())
-    werkzeuge = Werkzeugkasten(katalog, session, embedder)
+    werkzeuge = Werkzeugkasten(katalog, session, embedder, terminsystem)
     try:
         ergebnis = run_chat(
             provider, system_prompt, sitzungen.verlauf(sitzung_id), anfrage.nachricht, werkzeuge
@@ -92,4 +100,10 @@ def chat(
         antwort=ergebnis.antwort,
         kategorie=ergebnis.kategorie,
         quellen=[QuelleAntwort(dokument=q.dokument, titel=q.titel) for q in ergebnis.quellen],
+        # Genau die Termine, die das Werkzeug geliefert hat – nie vom Modell formuliert.
+        aktion=(
+            TerminVorschlag(slots=werkzeuge.termin_vorschlag)
+            if werkzeuge.termin_vorschlag is not None
+            else None
+        ),
     )

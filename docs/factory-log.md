@@ -6,6 +6,50 @@ Ein Eintrag pro Spec. Neue Einträge oben.
 Vorlage:
 
 ```markdown
+## Spec 005 – Terminanfrage über ein simuliertes Terminsystem (2026-10-27)
+
+- Durchläufe bis alle Tests grün: 1 Abnahmelauf (spec-005 12/12 im ersten Lauf); pytest brauchte 2 Läufe.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - `anfrage_stellen` las `zeile.anfrage_id` nach `commit()` außerhalb der Session
+    (`DetachedInstanceError`, 500). Von pytest gefunden; die UUID wird jetzt vor dem Insert erzeugt.
+  - `make acceptance` fand `robot` nicht im PATH; aufgerufen mit `ROBOT=.venv/bin/robot`
+    (Robot liegt in `.venv/` im Repo-Wurzelverzeichnis).
+- Getroffene Annahmen:
+  - „Die nächsten 14 Tage ab heute" = heute bis heute + 13 Tage (14 Kalendertage inkl. heute).
+  - Fachrichtung: Teilstring-Vergleich wie Spec 002 (`innere` → `Innere Medizin`); mehrere Treffer
+    (z. B. `medizin` an std-005) oder keiner → 422. Leerer Wert → 422.
+  - Slot-ID nur in kanonischer Form gültig (Fachrichtung exakt wie im Katalog, Offset `+01:00`/`+02:00`);
+    andere Schreibweisen desselben Zeitpunkts (`Z`, kleingeschrieben) → 409.
+  - „Belegt", wenn das erste Byte von `sha256(standort_id + fachrichtung + beginn_iso)` ≥ 128 ist.
+  - `aktion` enthält die Termine des **letzten erfolgreichen** Aufrufs von `freie_termine_suchen`,
+    auch wenn er leer war; fehlerhafte Aufrufe (unbekannter Standort, Fachrichtung) erzeugen keine `aktion`.
+  - `GET /api/termine/anfragen/{id}` mit ungültiger UUID → 404 (statt FastAPI-422), wie im Vertrag
+    nur `200`/`404` vorgesehen.
+  - Die Tabelle speichert keine Status-Spalte, da es nur `angefragt` gibt (Bestätigung/Absage nicht im Umfang).
+  - Engine mit `hide_parameters=True`: SQL-Fehler würden sonst Name/Telefon ins Log schreiben.
+    Gilt für alle Abfragen, ändert aber nur Fehlermeldungen.
+  - Unit-Tests für Speicher und API laufen gegen SQLite in-memory (das Projekt hat keine Test-DB);
+    der Postgres-Pfad ist durch die Abnahmetests abgedeckt.
+- `llm`-Tests (einmal am Ende, Ollama `qwen2.5:7b`, danach `ollama stop`): **44/47**.
+  - 004 „Antwort hat die Struktur aus dem Vertrag": ReadTimeout (60 s) beim ersten Aufruf (Kaltstart des Modells).
+  - 004 „Wissensfrage wird aus dem Dokument beantwortet": Antwort ohne „24 Stunden" (Antwortqualität).
+  - 005 „Chat schlägt freie Termine vor": `aktion` war `null`, das Modell hat `freie_termine_suchen` also
+    nicht erfolgreich aufgerufen. Ursache nicht belegt: Die Backend-Logs gingen beim Zurückschalten
+    auf `fake` mit dem Container verloren. Vermutung: Das Modell hört nach `standorte_suchen` auf.
+    Wegen des Arbeitsspeichers (16 GB) bewusst nicht wiederholt.
+- Offene Punkte:
+  - Werkzeugaufrufe nach Name im Chat-Log protokollieren (heute nur die Anzahl), damit sich
+    `llm`-Fehlschläge wie oben ohne erneuten Lauf erklären lassen.
+  - Ggf. Ein-Schritt-Variante: `freie_termine_suchen` mit Ort statt `standort_id`, damit kleine Modelle
+    nicht zwei Werkzeuge verketten müssen (wäre eine Spec-Änderung).
+  - Formular und Anzeige der Vorschläge folgen in Spec 008.
+- Eingriffe durch den Menschen:
+  - Vorgabe: Entwicklung mit `LLM_PROVIDER=fake`, `llm`-Tests höchstens einmal am Ende, danach
+    `ollama stop qwen2.5:7b` (Rechner mit 16 GB ist beim letzten Mal eingefroren).
+  - Während der Arbeit: Remote-Branch `spec/004-chat-assistent` löschen lassen – war auf GitHub schon
+    gelöscht, nur die lokale Tracking-Referenz wurde per `git fetch --prune` entfernt.
+- Review-Ergebnis: steht aus.
+
 ## Spec NNN – <Titel> (<Datum>)
 
 - Durchläufe bis alle Tests grün: <n>

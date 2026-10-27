@@ -1,6 +1,6 @@
 # Spec 005 – Terminanfrage über ein simuliertes Terminsystem
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 002, 004
 **Abnahmetests:** `tests/acceptance/005_termine.robot` (Tag `spec-005`)
 
@@ -89,3 +89,22 @@ Vergangenheit; `telefon` 6–30 Zeichen aus Ziffern, Leerzeichen, `+`, `-`, `/`.
 
 ## Umsetzungsnotizen
 
+Plan (2026-10-27):
+
+1. Modul `backend/app/termine/`: Modelle (`Slot`, `Anfrage`, `AnfrageAntwort`), Fehlerklassen,
+   abstrakte Klasse `Terminsystem`, Tabelle `terminanfragen` (SQLAlchemy).
+2. `SimuliertesTerminsystem`: Öffnungszeiten parsen (auch geteilte Intervalle), Raster 30 min,
+   Mo–Fr, heute + 13 Tage (`Europe/Berlin`), belegt per `sha256(standort_id+fachrichtung+beginn)`.
+3. Fachrichtung wie Spec 002 (Teilstring, normalisiert), aber genau ein Treffer, sonst 422.
+4. Anfrage: Slot-ID wird gegen die erzeugten Slots geprüft (kanonische Form, frei, Zukunft);
+   Eindeutigkeit über `UNIQUE(slot_id)` in der DB → `409`.
+5. Migration `0003_terminanfragen`; Löschfrist 30 Tage beim Start und stündlich (asyncio-Task).
+6. Router `/api/termine/...` mit API-Vertrag; Logs nur mit `anfrage_id`/`slot_id`,
+   Engine mit `hide_parameters=True`, damit DB-Fehler keine Formulardaten ins Log schreiben.
+7. Werkzeug `freie_termine_suchen` (max. 5) im `Werkzeugkasten`; `ChatAntwort.aktion`
+   `termin_vorschlag` mit den Slots des letzten erfolgreichen Aufrufs; Systemprompt ergänzen.
+8. pytest: Slot-Erzeugung, Validierung, Speicher (SQLite in-memory), API, Werkzeug, Chat-Aktion.
+
+Ergebnis (2026-10-27): `make lint` grün, `make test` 235/235, `make acceptance SPEC=005` 12/12,
+`make acceptance` 42/42. `make acceptance-llm` einmal mit Ollama: 44/47
+(005 „Chat schlägt freie Termine vor" rot, Details und Annahmen im Factory-Log).
