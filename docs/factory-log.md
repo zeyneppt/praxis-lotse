@@ -120,6 +120,16 @@ Vorlage:
   aber alle Tests mit dem Tag. Status zurückgesetzt. Hinweise (nur letzte Zeile als Quellenzeile,
   Titel mit Komma, Text-Werkzeugaufrufe ab Spec 005 neu bewerten, `max_retries=1` bei
   Anthropic, Nutzernachricht ungefiltert ans LLM bis Spec 006, 500 bei DB-Fehler) offen.
+- Nachtrag 2026-10-27: CLAUDE.md geändert (PR #5, Mensch) – `llm`-Tests sind Qualitätsmessung,
+  kein Merge-Kriterium. `main` in den Branch gemergt, Status wieder `fertig`.
+  **Letztes `llm`-Ergebnis: 9/11** (Ollama qwen2.5:7b, Kontrolllauf nach Review Runde 1;
+  rot: „Wissensfrage …" – Quellenzeile fehlte – und „Unbekanntes wird nicht erfunden" –
+  kein Verweis aufs Telefon). Kein neuer `llm`-Lauf. Hinweise aus Runde 2 bleiben offen.
+  Danach `make lint` grün, `make test` 158/158, `make acceptance SPEC=004` 7/7,
+  `make acceptance` 30/30. Zwei Läufe direkt nach `make up` scheiterten an der Verbindung
+  (Backend noch im Start: 0/7, dann 29/30 mit `Connection reset` beim Health-Test);
+  nach Bereitschaft von `/api/health` grün. Offener Punkt: `make acceptance` wartet nicht
+  auf ein bereites Backend.
 
 ## Spec 003 – Wissensbasis und semantische Suche (2026-10-25)
 

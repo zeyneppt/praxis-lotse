@@ -1,6 +1,6 @@
 # Spec 004 – Chat-Assistent mit Werkzeugen
 
-**Status:** in Arbeit
+**Status:** fertig
 **Abhängigkeiten:** 002, 003
 **Abnahmetests:** `tests/acceptance/004_chat.robot` (Tag `spec-004`)
 
@@ -141,3 +141,7 @@ Ollama (qwen2.5:7b): vor dem Review 10/11 und 11/11, nach der strikten Quellenre
 Status zurück auf `in Arbeit` (Review Runde 2, Entscheidung des Menschen): Laut CLAUDE.md
 müssen alle Tests mit Tag `spec-004` grün sein, auch die `llm`-Tests; die sind mit
 qwen2.5:7b nicht stabil grün. Wie es weitergeht, entscheidet der Mensch.
+
+Status wieder `fertig` (2026-10-27, nach CLAUDE.md-Änderung in PR #5): `llm`-Tests sind
+Qualitätsmessung, kein Merge-Kriterium. Maßgeblich sind `make acceptance SPEC=004`
+(ohne `llm`), `make test` und `make lint`. Letztes `llm`-Ergebnis: 9/11 (qwen2.5:7b).
