@@ -5,6 +5,7 @@ from typing import Any
 
 import anthropic
 
+from app.leitplanken.daten import als_nutzereingabe, als_werkzeugergebnis
 from app.llm.base import (
     AssistantMessage,
     LlmError,
@@ -31,7 +32,7 @@ def to_anthropic_messages(messages: list[Message]) -> list[dict[str, Any]]:
     for message in messages:
         match message:
             case UserMessage(text=text):
-                result.append({"role": "user", "content": text})
+                result.append({"role": "user", "content": als_nutzereingabe(text)})
             case AssistantMessage(text=text, tool_calls=tool_calls):
                 bloecke: list[dict[str, Any]] = []
                 if text:
@@ -51,7 +52,7 @@ def to_anthropic_messages(messages: list[Message]) -> list[dict[str, Any]]:
                 block = {
                     "type": "tool_result",
                     "tool_use_id": call_id,
-                    "content": content,
+                    "content": als_werkzeugergebnis(content),
                     "is_error": is_error,
                 }
                 vorige = result[-1] if result else None

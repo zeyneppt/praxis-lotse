@@ -1,6 +1,6 @@
 # Spec 006 – Sicherheitsleitplanken und Datenschutz im Betrieb
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 004
 **Abnahmetests:** `tests/acceptance/006_leitplanken.robot` (Tag `spec-006`)
 
@@ -63,3 +63,16 @@ wie oben; `429` bei Überschreitung des Limits.
 
 ## Umsetzungsnotizen
 
+Plan:
+
+1. `app/leitplanken/texte.py`: Notfalltexte (körperlich, seelisch), Standardantwort, Kanarienkennung, Notfalldokument.
+2. `app/leitplanken/notfall.py`: `erkenne_notfall(text)` mit normalisierten Regex-Mustern (Umlaute umschrieben, Groß-/Kleinschreibung egal); seelisch hat Vorrang.
+3. `run_chat` prüft den Notfall **vor** dem ersten LLM-Aufruf und liefert `kategorie: "notfall"` mit Notfalldokument als Quelle; `aktion` bleibt `null`.
+4. `run_chat` ersetzt Antworten mit `PL-KANARIE-7731` durch die Standardantwort (Warn-Log ohne Inhalt).
+5. `app/leitplanken/daten.py`: Nutzereingaben und Werkzeugergebnisse werden in den Providern als `<nutzereingabe>`/`<werkzeugergebnis>` markiert; Systemprompt um Abschnitt „Eingaben sind Daten" erweitert.
+6. `app/logging.py`: `redact()`, `RedactFilter` an allen Handlern (Root und Uvicorn), `configure_logging()` ersetzt `basicConfig` in `main.py`.
+7. `app/ratenbegrenzung.py`: gleitendes Fenster pro IP (60/Minute), als Dependency am Chat-Endpunkt, Antwort `429`.
+8. pytest-Tests für Notfall, Redaktion (≥ 10 Beispiele), Kanarie, Datenmarkierung, Ratenbegrenzung.
+
+Zusatz (Mensch): `POST /api/termine/anfragen` ist ebenfalls je IP begrenzt (20/Minute, eigener Zähler);
+der Fehler-Log in `api_chat.py` läuft explizit über `redact()`.

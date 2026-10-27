@@ -10,6 +10,7 @@ import pytest
 from pydantic import SecretStr
 
 from app.config import Settings
+from app.leitplanken.daten import als_werkzeugergebnis
 from app.llm import LlmConfigError, check_provider, create_provider
 from app.llm.anthropic_provider import AnthropicProvider, to_anthropic_messages
 from app.llm.base import AssistantMessage, LlmError, Message, ToolCall, ToolResult, UserMessage
@@ -106,7 +107,11 @@ def test_to_openai_messages() -> None:
             }
         ],
     }
-    assert nachrichten[3] == {"role": "tool", "tool_call_id": "c1", "content": '{"standorte": []}'}
+    assert nachrichten[3] == {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": als_werkzeugergebnis('{"standorte": []}'),
+    }
     assert nachrichten[4]["content"] == "Moment."
 
 
@@ -263,8 +268,18 @@ def test_to_anthropic_messages() -> None:
     assert nachrichten[2] == {
         "role": "user",
         "content": [
-            {"type": "tool_result", "tool_use_id": "a", "content": "eins", "is_error": False},
-            {"type": "tool_result", "tool_use_id": "b", "content": "zwei", "is_error": True},
+            {
+                "type": "tool_result",
+                "tool_use_id": "a",
+                "content": als_werkzeugergebnis("eins"),
+                "is_error": False,
+            },
+            {
+                "type": "tool_result",
+                "tool_use_id": "b",
+                "content": als_werkzeugergebnis("zwei"),
+                "is_error": True,
+            },
         ],
     }
 

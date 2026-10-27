@@ -10,6 +10,7 @@ from typing import Any
 
 import openai
 
+from app.leitplanken.daten import als_nutzereingabe, als_werkzeugergebnis
 from app.llm.base import (
     AssistantMessage,
     LlmError,
@@ -56,7 +57,7 @@ def to_openai_messages(system: str, messages: list[Message]) -> list[dict[str, A
     for message in messages:
         match message:
             case UserMessage(text=text):
-                result.append({"role": "user", "content": text})
+                result.append({"role": "user", "content": als_nutzereingabe(text)})
             case AssistantMessage(text=text, tool_calls=tool_calls):
                 eintrag: dict[str, Any] = {"role": "assistant", "content": text or None}
                 if tool_calls:
@@ -70,7 +71,13 @@ def to_openai_messages(system: str, messages: list[Message]) -> list[dict[str, A
                     ]
                 result.append(eintrag)
             case ToolResult(call_id=call_id, content=content):
-                result.append({"role": "tool", "tool_call_id": call_id, "content": content})
+                result.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": als_werkzeugergebnis(content),
+                    }
+                )
     return result
 
 

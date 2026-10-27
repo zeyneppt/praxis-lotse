@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from app.ratenbegrenzung import Ratenbegrenzer, pruefe_rate
 from app.termine import (
     Anfrage,
     AnfrageAntwort,
@@ -26,6 +27,18 @@ NICHT_VERFUEGBAR = "Termin nicht mehr verfügbar"
 def get_terminsystem(request: Request) -> Terminsystem:
     terminsystem: Terminsystem = request.app.state.terminsystem
     return terminsystem
+
+
+def get_termine_ratenbegrenzer(request: Request) -> Ratenbegrenzer:
+    begrenzer: Ratenbegrenzer = request.app.state.termine_ratenbegrenzer
+    return begrenzer
+
+
+def anfrage_rate_pruefen(
+    request: Request,
+    begrenzer: Annotated[Ratenbegrenzer, Depends(get_termine_ratenbegrenzer)],
+) -> None:
+    pruefe_rate(request, begrenzer, "Terminanfrage")
 
 
 TerminsystemDep = Annotated[Terminsystem, Depends(get_terminsystem)]
@@ -51,7 +64,12 @@ def freie_termine(
         ) from None
 
 
-@router.post("/anfragen", response_model=AnfrageAntwort, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/anfragen",
+    response_model=AnfrageAntwort,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(anfrage_rate_pruefen)],
+)
 def anfrage_stellen(anfrage: Anfrage, terminsystem: TerminsystemDep) -> AnfrageAntwort:
     try:
         antwort = terminsystem.anfrage_stellen(anfrage)

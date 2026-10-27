@@ -1,11 +1,14 @@
 """Chat-Schleife: Das Modell ruft Werkzeuge auf und antwortet auf Grundlage der Ergebnisse."""
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from app.leitplanken import texte
+from app.leitplanken.notfall import erkenne_notfall
 from app.llm.base import (
     AssistantMessage,
     LlmProvider,
@@ -15,6 +18,8 @@ from app.llm.base import (
     UserMessage,
 )
 from app.werkzeuge import WISSEN_SUCHEN, Werkzeugkasten
+
+logger = logging.getLogger(__name__)
 
 MAX_WERKZEUGAUFRUFE = 4
 SYSTEM_PROMPT_DATEI = Path(__file__).resolve().parent / "prompts" / "system.md"
@@ -96,6 +101,13 @@ def run_chat(
     werkzeuge: Werkzeugkasten,
 ) -> ChatErgebnis:
     """Wirft `LlmError`, wenn der Anbieter scheitert."""
+    # Regelbasiert und vor jedem LLM-Aufruf (Spec 006).
+    if (notfall := erkenne_notfall(nachricht)) is not None:
+        logger.info("Chat: Notfall erkannt (%s), LLM nicht aufgerufen", notfall)
+        text = texte.NOTFALL_KOERPERLICH if notfall == "koerperlich" else texte.NOTFALL_SEELISCH
+        return ChatErgebnis(
+            text, "notfall", [Quelle(texte.NOTFALL_DOKUMENT, texte.NOTFALL_TITEL)], 0
+        )
     nachrichten: list[Message] = [*verlauf, UserMessage(nachricht)]
     aufrufe = 0
     while True:
@@ -119,6 +131,11 @@ def run_chat(
             else:
                 # Jeder Aufruf braucht ein Ergebnis, sonst lehnt der Anbieter den Verlauf ab.
                 nachrichten.append(_limit_ergebnis(call))
+
+    if texte.KANARIE.casefold() in antwort.text.casefold():
+        # Kein Inhalt im Log: Die Antwort kann den Systemprompt enthalten.
+        logger.warning("Leitplanke: Antwort mit interner Kennung ersetzt")
+        return ChatErgebnis(texte.STANDARDANTWORT, "normal", [], aufrufe)
 
     text, quellen = extract_quellen(antwort.text, werkzeuge.gelieferte_dokumente)
     if not text:

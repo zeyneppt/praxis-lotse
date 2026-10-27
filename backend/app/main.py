@@ -23,12 +23,13 @@ from app.config import LlmProviderName, Settings, get_settings
 from app.db import database_reachable, get_engine, run_migrations
 from app.embeddings import FastEmbedder
 from app.llm import LlmConfigError, check_provider, create_provider
+from app.logging import configure_logging
+from app.ratenbegrenzung import MAX_TERMINANFRAGEN_PRO_MINUTE, Ratenbegrenzer
 from app.sitzungen import SitzungsSpeicher
 from app.standorte import load_katalog
 from app.termine import SimuliertesTerminsystem, Terminsystem
 
-# Uvicorn konfiguriert nur seine eigenen Logger; ohne Root-Handler fehlten die App-Logs.
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
+configure_logging()
 logger = logging.getLogger(__name__)
 
 LOESCHLAUF_INTERVALL_SEKUNDEN = 3600
@@ -57,6 +58,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     check_provider(app.state.llm_provider, settings)
     app.state.system_prompt = load_system_prompt()
     app.state.sitzungen = SitzungsSpeicher()
+    app.state.ratenbegrenzer = Ratenbegrenzer()
+    app.state.termine_ratenbegrenzer = Ratenbegrenzer(MAX_TERMINANFRAGEN_PRO_MINUTE)
     run_migrations()
     app.state.standort_katalog = load_katalog(settings.data_dir)
     app.state.terminsystem = SimuliertesTerminsystem(app.state.standort_katalog, get_engine())

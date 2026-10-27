@@ -13,6 +13,8 @@ from app.api_wissen import DbSession, get_embedder
 from app.chat import FEHLER_ANTWORT, KI_HINWEIS, Kategorie, run_chat
 from app.embeddings import Embedder
 from app.llm.base import LlmError, LlmProvider
+from app.logging import redact
+from app.ratenbegrenzung import Ratenbegrenzer, pruefe_rate
 from app.sitzungen import SitzungsSpeicher
 from app.termine import Slot
 from app.werkzeuge import Werkzeugkasten
@@ -35,6 +37,17 @@ def get_system_prompt(request: Request) -> str:
 def get_sitzungen(request: Request) -> SitzungsSpeicher:
     sitzungen: SitzungsSpeicher = request.app.state.sitzungen
     return sitzungen
+
+
+def get_ratenbegrenzer(request: Request) -> Ratenbegrenzer:
+    begrenzer: Ratenbegrenzer = request.app.state.ratenbegrenzer
+    return begrenzer
+
+
+def chat_rate_pruefen(
+    request: Request, begrenzer: Annotated[Ratenbegrenzer, Depends(get_ratenbegrenzer)]
+) -> None:
+    pruefe_rate(request, begrenzer, "Chat")
 
 
 # Wie bei der Wissenssuche: nur Leerzeichen gilt als leer.
@@ -65,7 +78,7 @@ class ChatAntwort(BaseModel):
     ki_hinweis: str = KI_HINWEIS
 
 
-@router.post("/chat", response_model=ChatAntwort)
+@router.post("/chat", response_model=ChatAntwort, dependencies=[Depends(chat_rate_pruefen)])
 def chat(
     anfrage: ChatAnfrage,
     katalog: Katalog,
@@ -84,7 +97,7 @@ def chat(
         )
     except LlmError as fehler:
         # Nur der Fehlertyp, kein Nachrichtentext (kann personenbezogene Daten enthalten).
-        logger.warning("Chat: LLM-Anbieter fehlgeschlagen (%s)", fehler)
+        logger.warning("Chat: LLM-Anbieter fehlgeschlagen (%s)", redact(str(fehler)))
         return ChatAntwort(
             sitzung_id=sitzung_id, antwort=FEHLER_ANTWORT, kategorie="fehler", quellen=[]
         )
