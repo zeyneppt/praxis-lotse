@@ -21,6 +21,8 @@ export default function App() {
   const [eingabe, setEingabe] = useState("");
   const [laedt, setLaedt] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  // Einzige Live-Region für Antworten: Screenreader lesen jede Antwort genau einmal vor.
+  const [ansage, setAnsage] = useState("");
   const [kiHinweis, setKiHinweis] = useState(KI_HINWEIS);
   // Nur im Zustand der Seite, bewusst nicht in localStorage (Spec 008).
   const [sitzungId, setSitzungId] = useState<string | null>(null);
@@ -40,12 +42,14 @@ export default function App() {
     setEintraege((alt) => [...alt, { id: naechsteId.current++, von: "person", text }]);
     setEingabe("");
     setFehler(null);
+    setAnsage("");
     setLaedt(true);
     try {
       const antwort = await chatSenden(text, sitzungId);
       setSitzungId(antwort.sitzung_id);
       setKiHinweis(antwort.ki_hinweis || KI_HINWEIS);
       setEintraege((alt) => [...alt, { id: naechsteId.current++, von: "assistent", antwort }]);
+      setAnsage(`${antwort.kategorie === "notfall" ? "Notfall" : "Praxis-Lotse"}: ${antwort.antwort}`);
     } catch (e) {
       setFehler(fehlerText(e));
     } finally {
@@ -71,7 +75,7 @@ export default function App() {
             <a href="tel:112">112</a> an.
           </p>
         )}
-        <ol className="verlauf" aria-label="Chatverlauf" aria-live="polite">
+        <ol className="verlauf" aria-label="Chatverlauf">
           {eintraege.map((eintrag) => (
             <Nachricht key={eintrag.id} eintrag={eintrag} />
           ))}
@@ -88,6 +92,9 @@ export default function App() {
           </p>
         )}
         <div ref={ende} />
+        <p className="unsichtbar" aria-live="polite">
+          {ansage}
+        </p>
       </main>
 
       <form className="eingabe" onSubmit={senden}>

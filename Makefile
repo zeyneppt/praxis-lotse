@@ -45,6 +45,7 @@ lint: $(VENV)/.installiert frontend/node_modules/.package-lock.json
 
 test: $(VENV)/.installiert
 	cd backend && .venv/bin/pytest -q
+	cd frontend && npm test --silent
 
 acceptance:
 	@if [ -z "$(strip $(INCLUDES))" ]; then echo "Keine aktive Spec – keine Abnahmetests."; exit 0; fi; \

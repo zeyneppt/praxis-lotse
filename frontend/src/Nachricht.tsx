@@ -44,7 +44,6 @@ export function Nachricht({ eintrag }: { eintrag: Eintrag }) {
         className={`nachricht nachricht-assistent${notfall ? " notfall" : ""}`}
         data-testid="nachricht-assistent"
         data-kategorie={antwort.kategorie}
-        role={notfall ? "alert" : undefined}
       >
         {notfall ? (
           <p className="notfall-titel">

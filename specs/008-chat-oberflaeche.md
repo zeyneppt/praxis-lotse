@@ -79,3 +79,7 @@ Ergebnis (2026-10-27): `make lint` grün, `make test` 327/327 (keine Backend-Än
 Der `llm`-Test „Terminanfrage über das Formular" wurde auf Anweisung nicht ausgeführt (`LLM_PROVIDER=fake`);
 der Formularablauf wurde stattdessen mit gemocktem `/api/chat` und echtem `/api/termine/anfragen`
 im Browser geprüft (Bestätigung, `409`-Hinweis, 375 px ohne horizontales Scrollen).
+
+Nachbesserung nach Review (2026-10-27): Telefon-Links nur für echte Nummern, Fokusfarbe ≥ 3:1, eine Live-Region,
+Formularprüfung wie der Server, vergebener Slot nach `409` gesperrt; Unit-Tests für `format.ts` mit `node:test`
+(`make test`). `make lint` grün, `make test` 327 + 7, `make acceptance` 61/61.

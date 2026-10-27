@@ -13,7 +13,8 @@
   --notfall-flaeche: #fdeceb;
   --erfolg: #1e6b34;
   --erfolg-flaeche: #e8f5ec;
-  --fokus: #f2a900;
+  /* Fokusrahmen: ≥ 3:1 auf allen Hintergründen (WCAG 1.4.11). */
+  --fokus: #083d6d;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -282,10 +283,24 @@ button.slot {
   font-weight: 400;
 }
 
-button.slot:hover,
+button.slot:hover:not(:disabled),
 button.slot[aria-pressed="true"] {
   background: var(--person);
   color: var(--text);
+}
+
+button.slot:disabled {
+  background: var(--flaeche);
+  border-color: var(--rand);
+  color: var(--text-leise);
+}
+
+button.slot:disabled .slot-datum {
+  text-decoration: line-through;
+}
+
+.slot-vergeben {
+  font-weight: 700;
 }
 
 .slot-datum {

@@ -57,6 +57,21 @@ Vorlage:
   - Ein automatisierter Barrierefreiheits-Check (axe) wäre eine sinnvolle Ergänzung der Abnahmetests.
 - Eingriffe durch den Menschen:
   - Anweisung: `LLM_PROVIDER=fake`, `llm`-Test nicht ausführen, Browser Library lokal in `.venv` installieren, CI nach dem Push abwarten, nicht mergen.
+- Review-Ergebnis: freigegeben nach 1 Runde (keine blockierenden Punkte, 9 Hinweise im PR-Kommentar).
+- Nachbesserung nach Review (auf Anweisung des Menschen, ohne neue Abhängigkeit):
+  - Telefon-Links: nur 112, 116117 und Nummern mit `+49` oder Vorwahl (`0` + mind. zwei Ziffern) mit mind. 6 Ziffern;
+    Bindestrich nur ohne Leerzeichen als Trenner. „08 - 12 Uhr", „08:00-12:00", „03/2026", „01067 Dresden" werden nicht mehr verlinkt.
+  - Fokusrahmen `#083d6d` (≥ 9:1 auf allen verwendeten Hintergründen, statt ca. 2:1).
+  - Eine einzige Live-Region (`aria-live="polite"`, unsichtbar) sagt jede Antwort an, Notfälle mit „Notfall:"; `role="alert"` an der
+    Notfall-Nachricht und `aria-live` am Verlauf entfernt. Status/Alert im Terminformular liegen damit nicht mehr in einer Live-Region.
+  - Formular wie der Server: Geburtsdatum höchstens gestern in `Europe/Berlin`; Telefon-`pattern` verlangt mind. 6 Ziffern.
+  - Nach `409` ist der Slot deaktiviert („Bereits vergeben"), Absenden gesperrt; beim Wechsel auf einen anderen Slot
+    bleiben die eingegebenen Daten erhalten (Formular nicht mehr per `key` an den Slot gebunden).
+  - Unit-Tests für `format.ts` mit dem eingebauten `node:test` (Node ≥ 22.18 entfernt TypeScript-Typen selbst), Aufruf über
+    `npm test` und `make test`. Die Testdatei ist von `tsc` ausgenommen, weil `@types/node` fehlt; sie wird also nicht typgeprüft.
+  - Durchläufe: `node --test` 7/7 im ersten Lauf, `make lint` grün, `make test` 327 + 7, `make acceptance` 61/61.
+  - Fehler des Agenten: Im eigenen Browser-Prüfskript wurden die Links gelesen, bevor die Antwort da war (leere Liste) –
+    kein Codefehler, Skript wartet jetzt auf die Nachricht. Bei den Prüfungen wurden lokal weitere Slots in der Entwicklungs-DB angefragt.
 
 ## Spec 007 – Evaluation der Antwortqualität (2026-10-27)
 

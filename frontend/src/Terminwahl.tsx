@@ -1,18 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { HttpFehler, terminAnfragen, type AnfrageAntwort, type Slot } from "./api";
-import { terminZeit } from "./format";
-
-type Zustand =
-  | { art: "auswahl" }
-  | { art: "formular"; slot: Slot; fehler?: string }
-  | { art: "bestaetigt"; antwort: AnfrageAntwort };
-
-function heute(): string {
-  const jetzt = new Date();
-  const monat = String(jetzt.getMonth() + 1).padStart(2, "0");
-  const tag = String(jetzt.getDate()).padStart(2, "0");
-  return `${jetzt.getFullYear()}-${monat}-${tag}`;
-}
+import { gesternInBerlin, TELEFON_MUSTER, terminZeit } from "./format";
 
 function SlotText({ slot }: { slot: Slot }) {
   const { datum, uhrzeit } = terminZeit(slot.beginn);
@@ -30,38 +18,59 @@ function SlotText({ slot }: { slot: Slot }) {
 
 /** Terminvorschläge einer Assistenten-Nachricht mit Anfrageformular. */
 export function Terminwahl({ slots }: { slots: Slot[] }) {
-  const [zustand, setZustand] = useState<Zustand>({ art: "auswahl" });
+  const [gewaehlt, setGewaehlt] = useState<Slot | null>(null);
+  const [fehler, setFehler] = useState<string>();
+  // Slots, für die der Server 409 gemeldet hat; sie sind nicht mehr wählbar.
+  const [vergeben, setVergeben] = useState<ReadonlySet<string>>(new Set());
+  const [bestaetigt, setBestaetigt] = useState<AnfrageAntwort | null>(null);
 
-  if (zustand.art === "bestaetigt") {
-    return <Bestaetigung antwort={zustand.antwort} />;
+  if (bestaetigt) {
+    return <Bestaetigung antwort={bestaetigt} />;
+  }
+
+  function waehlen(slot: Slot | null) {
+    setGewaehlt(slot);
+    setFehler(undefined);
+  }
+
+  function alsVergebenMarkieren(slotId: string) {
+    setVergeben((alt) => new Set(alt).add(slotId));
+    setFehler("Dieser Termin ist leider schon vergeben. Bitte wählen Sie einen anderen Termin.");
   }
 
   return (
     <div className="terminwahl">
       <p className="terminwahl-titel">Freie Termine – bitte auswählen:</p>
       <ul className="slots">
-        {slots.map((slot) => (
-          <li key={slot.slot_id}>
-            <button
-              type="button"
-              className="slot"
-              data-testid="termin-slot"
-              aria-pressed={zustand.art === "formular" && zustand.slot.slot_id === slot.slot_id}
-              onClick={() => setZustand({ art: "formular", slot })}
-            >
-              <SlotText slot={slot} />
-            </button>
-          </li>
-        ))}
+        {slots.map((slot) => {
+          const istVergeben = vergeben.has(slot.slot_id);
+          return (
+            <li key={slot.slot_id}>
+              <button
+                type="button"
+                className="slot"
+                data-testid="termin-slot"
+                disabled={istVergeben}
+                aria-pressed={gewaehlt?.slot_id === slot.slot_id}
+                onClick={() => waehlen(slot)}
+              >
+                <SlotText slot={slot} />
+                {istVergeben && <span className="slot-vergeben">Bereits vergeben</span>}
+              </button>
+            </li>
+          );
+        })}
       </ul>
-      {zustand.art === "formular" && (
+      {gewaehlt && (
+        // Ohne `key`: Beim Wechsel des Termins bleiben die eingegebenen Daten erhalten.
         <TerminFormular
-          key={zustand.slot.slot_id}
-          slot={zustand.slot}
-          fehler={zustand.fehler}
-          onErfolg={(antwort) => setZustand({ art: "bestaetigt", antwort })}
-          onFehler={(fehler) => setZustand({ art: "formular", slot: zustand.slot, fehler })}
-          onAbbrechen={() => setZustand({ art: "auswahl" })}
+          slot={gewaehlt}
+          vergeben={vergeben.has(gewaehlt.slot_id)}
+          fehler={fehler}
+          onErfolg={setBestaetigt}
+          onVergeben={alsVergebenMarkieren}
+          onFehler={setFehler}
+          onAbbrechen={() => waehlen(null)}
         />
       )}
     </div>
@@ -70,13 +79,23 @@ export function Terminwahl({ slots }: { slots: Slot[] }) {
 
 interface FormularProps {
   slot: Slot;
+  vergeben: boolean;
   fehler?: string;
   onErfolg: (antwort: AnfrageAntwort) => void;
+  onVergeben: (slotId: string) => void;
   onFehler: (fehler: string) => void;
   onAbbrechen: () => void;
 }
 
-function TerminFormular({ slot, fehler, onErfolg, onFehler, onAbbrechen }: FormularProps) {
+function TerminFormular({
+  slot,
+  vergeben,
+  fehler,
+  onErfolg,
+  onVergeben,
+  onFehler,
+  onAbbrechen,
+}: FormularProps) {
   // Personenbezogene Daten bleiben in diesem Zustand und gehen nur an /api/termine/anfragen.
   const [name, setName] = useState("");
   const [geburtsdatum, setGeburtsdatum] = useState("");
@@ -105,7 +124,7 @@ function TerminFormular({ slot, fehler, onErfolg, onFehler, onAbbrechen }: Formu
     } catch (e) {
       setSendet(false);
       if (e instanceof HttpFehler && e.status === 409) {
-        onFehler("Dieser Termin ist leider schon vergeben. Bitte wählen Sie einen anderen Termin.");
+        onVergeben(slot.slot_id);
       } else if (e instanceof HttpFehler && e.status === 422) {
         onFehler("Bitte prüfen Sie Ihre Angaben (Name, Geburtsdatum, Telefonnummer, Einwilligung).");
       } else if (e instanceof HttpFehler && e.status === 429) {
@@ -145,7 +164,7 @@ function TerminFormular({ slot, fehler, onErfolg, onFehler, onAbbrechen }: Formu
         type="date"
         autoComplete="bday"
         required
-        max={heute()}
+        max={gesternInBerlin()}
         value={geburtsdatum}
         onChange={(e) => setGeburtsdatum(e.target.value)}
       />
@@ -158,7 +177,8 @@ function TerminFormular({ slot, fehler, onErfolg, onFehler, onAbbrechen }: Formu
         required
         minLength={6}
         maxLength={30}
-        pattern="[0-9 +\/\-]{6,30}"
+        pattern={TELEFON_MUSTER}
+        title="Mindestens 6 Ziffern; erlaubt sind Ziffern, Leerzeichen, +, - und /"
         value={telefon}
         onChange={(e) => setTelefon(e.target.value)}
       />
@@ -182,7 +202,7 @@ function TerminFormular({ slot, fehler, onErfolg, onFehler, onAbbrechen }: Formu
         </p>
       )}
       <div className="formular-knoepfe">
-        <button type="submit" data-testid="termin-absenden" disabled={sendet}>
+        <button type="submit" data-testid="termin-absenden" disabled={sendet || vergeben}>
           {sendet ? "Wird gesendet …" : "Termin anfragen"}
         </button>
         <button type="button" className="zweitrangig" onClick={onAbbrechen} disabled={sendet}>
