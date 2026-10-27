@@ -76,6 +76,9 @@ Fachrichtung des Standorts treffen; keine oder mehrere Treffer → `422`.
 Validierung: `name` 2–100 Zeichen; `geburtsdatum` gültiges Datum in der
 Vergangenheit; `telefon` 6–30 Zeichen aus Ziffern, Leerzeichen, `+`, `-`, `/`.
 
+**Ergänzung (Mensch, 2026-10-27):** `telefon` muss zusätzlich mindestens 6 Ziffern enthalten
+(z. B. sind sechs Leerzeichen oder `++++++` ungültig → `422`).
+
 `AnfrageAntwort`: `{"anfrage_id": "<uuid>", "status": "angefragt", "slot": Slot}`
 (ohne personenbezogene Felder).
 
@@ -105,6 +108,6 @@ Plan (2026-10-27):
    `termin_vorschlag` mit den Slots des letzten erfolgreichen Aufrufs; Systemprompt ergänzen.
 8. pytest: Slot-Erzeugung, Validierung, Speicher (SQLite in-memory), API, Werkzeug, Chat-Aktion.
 
-Ergebnis (2026-10-27): `make lint` grün, `make test` 238/238 (nach Review), `make acceptance SPEC=005` 12/12,
+Ergebnis (2026-10-27): `make lint` grün, `make test` 246/246 (nach Review und Ergänzung Telefon), `make acceptance SPEC=005` 12/12,
 `make acceptance` 42/42. `make acceptance-llm` einmal mit Ollama: 44/47
 (005 „Chat schlägt freie Termine vor" rot, Details und Annahmen im Factory-Log).

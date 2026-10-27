@@ -32,6 +32,16 @@ def _in_der_vergangenheit(wert: date) -> date:
     return wert
 
 
+MIN_TELEFON_ZIFFERN = 6
+
+
+def _genug_ziffern(wert: str) -> str:
+    # Ergänzung (Mensch) zu Spec 005: Sonst wären z. B. sechs Leerzeichen gültig.
+    if sum(zeichen.isdigit() for zeichen in wert) < MIN_TELEFON_ZIFFERN:
+        raise ValueError(f"Telefonnummer muss mindestens {MIN_TELEFON_ZIFFERN} Ziffern enthalten")
+    return wert
+
+
 def _eingewilligt(wert: bool) -> bool:
     if not wert:
         raise ValueError("Einwilligung in die Datenverarbeitung ist erforderlich")
@@ -42,7 +52,9 @@ class Anfrage(BaseModel):
     slot_id: Annotated[str, StringConstraints(max_length=200)]
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)]
     geburtsdatum: Annotated[date, AfterValidator(_in_der_vergangenheit)]
-    telefon: Annotated[str, StringConstraints(pattern=r"^[0-9 +\-/]{6,30}$")]
+    telefon: Annotated[
+        str, StringConstraints(pattern=r"^[0-9 +\-/]{6,30}$"), AfterValidator(_genug_ziffern)
+    ]
     einwilligung_datenschutz: Annotated[StrictBool, AfterValidator(_eingewilligt)]
 
 

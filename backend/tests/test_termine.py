@@ -322,6 +322,11 @@ def test_loeschfrist_30_tage(system: SimuliertesTerminsystem, uhr: Uhr) -> None:
         {"telefon": "12345"},
         {"telefon": "1" * 31},
         {"telefon": "0911 123456 ext"},
+        {"telefon": "      "},
+        {"telefon": "++++++"},
+        {"telefon": "-/-/-/"},
+        {"telefon": "1 2 3 4 5"},
+        {"telefon": "+49 / 1-2-3"},
         {"einwilligung_datenschutz": False},
         {"einwilligung_datenschutz": "true"},
         {"einwilligung_datenschutz": 1},
@@ -341,6 +346,8 @@ def test_ungueltige_anfrage(felder: dict[str, Any]) -> None:
         {"telefon": "0911/123-45"},
         {"telefon": "1" * 30},
         {"telefon": "123456"},
+        {"telefon": "1 2 3 4 5 6"},
+        {"telefon": "+4 9-1/2 3 4"},
     ],
 )
 def test_gueltige_grenzwerte(felder: dict[str, Any]) -> None:
@@ -484,3 +491,11 @@ def test_api_422_wiederholt_keine_personenbezogenen_daten(client: TestClient) ->
         assert fehler and all(set(e) == {"loc", "msg", "type"} for e in fehler)
         for geheim in ("0911", "2099-01-01", "Mustermann", '"E"'):
             assert geheim not in antwort.text
+
+
+def test_api_telefon_ohne_genug_ziffern(client: TestClient) -> None:
+    antwort = client.post("/api/termine/anfragen", json=body("x", telefon="+ 12 - 34 /"))
+
+    assert antwort.status_code == 422
+    assert antwort.json()["detail"][0]["loc"] == ["body", "telefon"]
+    assert "mindestens 6 Ziffern" in antwort.json()["detail"][0]["msg"]

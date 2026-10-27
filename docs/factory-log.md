@@ -56,12 +56,20 @@ Vorlage:
     auf `fake` mit dem Container verloren. Vermutung: Das Modell hört nach `standorte_suchen` auf.
     Wegen des Arbeitsspeichers (16 GB) bewusst nicht wiederholt.
 - Offene Punkte:
+  - Für Spec 006 (Entscheidung des Menschen, 2026-10-27):
+    - Rate-Limit für `POST /api/termine/anfragen` (heute kann ein Client alle freien Slots wegbuchen).
+    - `api_chat.py` loggt bei `LlmError` die volle Fehlermeldung (`%s` mit `fehler`), obwohl laut
+      Kommentar nur der Fehlertyp geloggt werden soll – über `redact()` bzw. nur den Typ loggen.
   - Werkzeugaufrufe nach Name im Chat-Log protokollieren (heute nur die Anzahl), damit sich
     `llm`-Fehlschläge wie oben ohne erneuten Lauf erklären lassen.
   - Ggf. Ein-Schritt-Variante: `freie_termine_suchen` mit Ort statt `standort_id`, damit kleine Modelle
     nicht zwei Werkzeuge verketten müssen (wäre eine Spec-Änderung).
   - Formular und Anzeige der Vorschläge folgen in Spec 008.
 - Eingriffe durch den Menschen:
+  - Spec-Änderung nach dem Review (gekennzeichnet als „Ergänzung (Mensch)" in Spec 005, Validierung):
+    `telefon` muss mindestens 6 Ziffern enthalten. Umgesetzt als zusätzlicher Validator; neue
+    pytest-Fälle (nur Leerzeichen, nur `+`/`-`/`/`, 5 Ziffern → 422; genau 6 Ziffern gültig). pytest 246/246.
+  - Rate-Limit für Terminanfragen und Fehlerlog in `api_chat.py` auf Spec 006 verschoben (siehe Offene Punkte).
   - Vorgabe: Entwicklung mit `LLM_PROVIDER=fake`, `llm`-Tests höchstens einmal am Ende, danach
     `ollama stop qwen2.5:7b` (Rechner mit 16 GB ist beim letzten Mal eingefroren).
   - Während der Arbeit: Remote-Branch `spec/004-chat-assistent` löschen lassen – war auf GitHub schon
