@@ -75,7 +75,7 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | 005 | Terminanfrage | fertig |
 | 006 | Sicherheitsleitplanken | fertig |
 | 007 | Evaluation | fertig |
-| 008 | Chat-Oberfläche | offen |
+| 008 | Chat-Oberfläche | fertig |
 
 ## Datenschutz
 

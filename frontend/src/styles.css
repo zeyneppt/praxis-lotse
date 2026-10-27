@@ -1,0 +1,378 @@
+/* Farben mit Kontrast nach WCAG AA (Text ≥ 4,5:1 auf dem jeweiligen Hintergrund). */
+:root {
+  color-scheme: light;
+  --text: #1b1f24;
+  --text-leise: #4a5361;
+  --hintergrund: #ffffff;
+  --flaeche: #f2f4f7;
+  --person: #e3edf9;
+  --primaer: #0b5394;
+  --primaer-dunkel: #083d6d;
+  --rand: #8a94a3;
+  --notfall: #b3261e;
+  --notfall-flaeche: #fdeceb;
+  --erfolg: #1e6b34;
+  --erfolg-flaeche: #e8f5ec;
+  /* Fokusrahmen: ≥ 3:1 auf allen Hintergründen (WCAG 1.4.11). */
+  --fokus: #083d6d;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--hintergrund);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--hintergrund);
+  overflow-wrap: anywhere;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--primaer);
+  text-decoration: underline;
+}
+
+input,
+button {
+  font: inherit;
+  font-size: 1rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.unsichtbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Layout: Kopf mit KI-Hinweis oben, Verlauf scrollt, Eingabe unten. */
+.seite {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.kopf {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--rand);
+}
+
+.kopf h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: var(--primaer-dunkel);
+}
+
+.ki-hinweis {
+  padding: 0.5rem 0.75rem;
+  background: var(--flaeche);
+  border-left: 4px solid var(--primaer);
+  border-radius: 4px;
+}
+
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.begruessung {
+  margin-bottom: 1rem;
+  color: var(--text-leise);
+}
+
+.verlauf {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.zeile {
+  display: flex;
+}
+
+.zeile-person {
+  justify-content: flex-end;
+}
+
+.zeile-assistent {
+  justify-content: flex-start;
+}
+
+.nachricht {
+  max-width: min(36rem, 90%);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.nachricht-person {
+  background: var(--person);
+  border-bottom-right-radius: 2px;
+}
+
+.nachricht-assistent {
+  background: var(--flaeche);
+  border-bottom-left-radius: 2px;
+}
+
+.nachricht-text {
+  white-space: pre-line;
+}
+
+.nachricht-assistent.notfall {
+  background: var(--notfall-flaeche);
+  border: 3px solid var(--notfall);
+}
+
+.notfall-titel {
+  font-weight: 700;
+  color: var(--notfall);
+  margin-bottom: 0.25rem;
+}
+
+.notfall a {
+  color: var(--notfall);
+  font-weight: 700;
+}
+
+.quellen {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rand);
+  color: var(--text-leise);
+}
+
+.quellen-titel {
+  font-weight: 600;
+}
+
+.quellen ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.laden {
+  margin-top: 0.75rem;
+  color: var(--text-leise);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.laden-punkte {
+  width: 1rem;
+  height: 1rem;
+  border: 3px solid var(--rand);
+  border-top-color: var(--primaer);
+  border-radius: 50%;
+  animation: drehen 1s linear infinite;
+}
+
+@keyframes drehen {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .laden-punkte {
+    animation: none;
+  }
+}
+
+.fehler {
+  margin-top: 0.75rem;
+  color: var(--notfall);
+  font-weight: 600;
+}
+
+/* Eingabe */
+.eingabe {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rand);
+}
+
+.eingabe input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+}
+
+button {
+  padding: 0.625rem 1rem;
+  border: 2px solid var(--primaer);
+  border-radius: 6px;
+  background: var(--primaer);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--primaer-dunkel);
+  border-color: var(--primaer-dunkel);
+}
+
+button:disabled {
+  background: #5d6b7c;
+  border-color: #5d6b7c;
+  cursor: not-allowed;
+}
+
+button.zweitrangig {
+  background: var(--hintergrund);
+  color: var(--primaer);
+}
+
+/* Terminvorschläge und Formular */
+.terminwahl {
+  margin-top: 0.75rem;
+}
+
+.terminwahl-titel {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+button.slot {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  background: var(--hintergrund);
+  color: var(--text);
+  font-weight: 400;
+}
+
+button.slot:hover:not(:disabled),
+button.slot[aria-pressed="true"] {
+  background: var(--person);
+  color: var(--text);
+}
+
+button.slot:disabled {
+  background: var(--flaeche);
+  border-color: var(--rand);
+  color: var(--text-leise);
+}
+
+button.slot:disabled .slot-datum {
+  text-decoration: line-through;
+}
+
+.slot-vergeben {
+  font-weight: 700;
+}
+
+.slot-datum {
+  font-weight: 700;
+}
+
+.termin-formular {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--hintergrund);
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.formular-titel {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.termin-formular label {
+  font-weight: 600;
+}
+
+.termin-formular input[type="text"],
+.termin-formular input[type="date"],
+.termin-formular input[type="tel"] {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+}
+
+.einwilligung {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.einwilligung input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.einwilligung label {
+  font-weight: 400;
+}
+
+.formular-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.bestaetigung {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--erfolg-flaeche);
+  border: 2px solid var(--erfolg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bestaetigung strong {
+  color: var(--erfolg);
+}
