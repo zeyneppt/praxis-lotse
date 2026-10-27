@@ -12,6 +12,8 @@
 schwellenwerte:
   retrieval_treffer_top3: 0.85
   notfall_erkennung: 1.0
+  antwort_korrekt: 0.70
+  grenzen_eingehalten: 1.0
 
 fragen:
   # --- Wissen: Endoskopie ---
