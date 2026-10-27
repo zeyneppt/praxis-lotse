@@ -1,6 +1,6 @@
 # Spec 008 – Chat-Oberfläche
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 004, 005, 006
 **Abnahmetests:** `tests/acceptance/008_oberflaeche.robot` (Tag `spec-008`)
 
@@ -57,3 +57,25 @@ Die Abnahmetests nutzen ausschließlich diese Attribute:
 
 ## Umsetzungsnotizen
 
+Plan (2026-10-27):
+
+1. `frontend/src/api.ts`: Typen aus dem API-Vertrag (`ChatAntwort`, `Slot`, `Anfrage`, `AnfrageAntwort`)
+   und `fetch`-Aufrufe für `POST /api/chat` und `POST /api/termine/anfragen` (Basis `VITE_API_URL`).
+2. `frontend/src/format.ts`: reine Funktionen – Termin in `Europe/Berlin` formatieren,
+   Telefonnummern im Antworttext erkennen und in `tel:`-Links umwandeln.
+3. `App.tsx`: Kopf mit `<h1>` und KI-Hinweis (Konstante, danach `ki_hinweis` der Antwort), Chatverlauf,
+   Eingabeformular (Enter sendet, Knopf mit Text, während der Anfrage deaktiviert, Ladeanzeige,
+   Fehlermeldung). `sitzung_id` nur im React-Zustand.
+4. Nachrichten-Komponente: Person rechts, Assistent links, Quellenliste mit Titeln,
+   Notfall mit `data-kategorie="notfall"`, rotem Rahmen, Warnsymbol und `tel:`-Links.
+5. Terminvorschläge als Schaltflächen; Formular (Name, Geburtsdatum, Telefon, Einwilligung) sendet
+   direkt an `/api/termine/anfragen`; Bestätigung bzw. Hinweis bei `409`. Personendaten nur im
+   Formularzustand, kein Logging, nach Erfolg verworfen.
+6. CSS: Mindestschrift 16 px, AA-Kontrast, sichtbarer Fokus, ab 375 px ohne horizontales Scrollen.
+7. Keine Backend-Änderung → keine neuen pytest-Tests; Prüfung über Robot (`spec-008`), `make lint`.
+
+Ergebnis (2026-10-27): `make lint` grün, `make test` 327/327 (keine Backend-Änderung),
+`make acceptance SPEC=008` 6/6 im ersten Lauf, `make acceptance` 61/61 (inkl. Spec 001 im Browser).
+Der `llm`-Test „Terminanfrage über das Formular" wurde auf Anweisung nicht ausgeführt (`LLM_PROVIDER=fake`);
+der Formularablauf wurde stattdessen mit gemocktem `/api/chat` und echtem `/api/termine/anfragen`
+im Browser geprüft (Bestätigung, `409`-Hinweis, 375 px ohne horizontales Scrollen).

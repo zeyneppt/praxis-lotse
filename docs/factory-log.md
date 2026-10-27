@@ -22,6 +22,42 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 008 – Chat-Oberfläche (2026-10-27)
+
+- Durchläufe bis alle Tests grün: 1 (`make lint` 1, `make acceptance SPEC=008` 6/6 im ersten Lauf);
+  `make acceptance` (alle Specs, ohne `llm`) 61/61 – erstmals einschließlich Spec 001 „Frontend zeigt die Überschrift",
+  weil die Browser Library jetzt in `.venv` installiert ist (`pip install -r tests/acceptance/requirements.txt`, `rfbrowser init chromium`).
+- `llm`-Test „Terminanfrage über das Formular" nicht ausgeführt: `LLM_PROVIDER=fake` auf Anweisung, Ollama nicht gestartet.
+  Der `fake`-Provider erzeugt nie eine `aktion`. Ersatzprüfung (nicht eingecheckt): Playwright-Skript mit gemocktem
+  `/api/chat` (`termin_vorschlag` mit echtem Slot) und echtem `POST /api/termine/anfragen` → Bestätigung mit Datum,
+  Uhrzeit und „MVZ Fürth Zentrum"; zweite Anfrage desselben Slots → Hinweis „schon vergeben" (409); `scrollWidth` 375.
+  Dabei wurde lokal ein Slot (std-004, 28.10.2026 08:30) in der Entwicklungsdatenbank angefragt.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Erstes `pattern` für das Telefonfeld (`[0-9 +/\-]`) wäre im `v`-Modus moderner Browser ungültig gewesen (unescaptes `/`)
+    und damit still ignoriert worden – beim Durchlesen bemerkt, vor dem ersten Testlauf korrigiert.
+  - Ersatzprüfung lief zuerst nicht: Playwright fand Chromium nicht, weil `rfbrowser` die Browser im Paket ablegt
+    (`PLAYWRIGHT_BROWSERS_PATH=0`).
+- Getroffene Annahmen:
+  - Keine pytest-Tests: Die Spec ändert nur das Frontend. Ein Frontend-Testframework (z. B. Vitest) wäre eine neue
+    Abhängigkeit, die die Spec nicht verlangt. Die Logik liegt in reinen Funktionen (`src/format.ts`), damit sie später testbar ist.
+  - Telefonnummern werden in **allen** Assistenten-Nachrichten verlinkt (112, 116117, Nummern mit `0…`/`+49…`), nicht nur bei Notfällen –
+    Fehler- und Normalantworten verweisen ebenfalls auf das Praxistelefon. Nebenwirkung: Eine frei stehende „112" in anderem Sinn würde auch verlinkt.
+  - Der KI-Hinweis steht im festen Kopfbereich; nur der Verlauf scrollt (so bleibt er „dauerhaft sichtbar").
+  - Die Begrüßung ist normaler Text (kein `nachricht-assistent`) und enthält einen `tel:112`-Link.
+  - Netzwerkfehler, Zeitüberschreitung (90 s) und HTTP-Fehler beim Chat erscheinen als Fehlermeldung (`role="alert"`) unter dem Verlauf,
+    nicht als Assistenten-Nachricht; `429` bekommt einen eigenen Text.
+  - Formular: Browser-Validierung (`required`, `minLength`, `pattern`, Datum ≤ heute) vor dem Senden; der Server bleibt maßgeblich, `422` → Hinweis „Angaben prüfen".
+    Formulardaten liegen nur im Komponentenzustand und werden nach Erfolg verworfen; kein `console.log`.
+  - Termin-Zeiten werden in `Europe/Berlin` angezeigt, unabhängig von der Zeitzone des Geräts.
+  - Senden-Knopf ist nur während einer laufenden Anfrage deaktiviert; leere Eingaben werden ignoriert.
+  - Kontrast der Farben nach WCAG-Formel gewählt, aber nicht mit einem Werkzeug (z. B. axe) gemessen.
+- Offene Punkte:
+  - Kein Dark Mode.
+  - `make acceptance-llm` (mit Ollama) steht noch aus – vom Menschen auszuführen.
+  - Ein automatisierter Barrierefreiheits-Check (axe) wäre eine sinnvolle Ergänzung der Abnahmetests.
+- Eingriffe durch den Menschen:
+  - Anweisung: `LLM_PROVIDER=fake`, `llm`-Test nicht ausführen, Browser Library lokal in `.venv` installieren, CI nach dem Push abwarten, nicht mergen.
+
 ## Spec 007 – Evaluation der Antwortqualität (2026-10-27)
 
 - Durchläufe bis alle Tests grün: pytest 2 Läufe (erster: ruff E501/Format in den neuen Dateien),
