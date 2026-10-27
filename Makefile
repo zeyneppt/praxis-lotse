@@ -15,6 +15,7 @@ endif
 .PHONY: up down ingest lint test acceptance acceptance-llm eval
 
 up:
+	mkdir -p reports/robot reports/eval
 	docker compose up -d --build
 
 down:
