@@ -32,6 +32,8 @@ Vorlage:
     (Robot liegt in `.venv/` im Repo-Wurzelverzeichnis).
 - Getroffene Annahmen:
   - „Die nächsten 14 Tage ab heute" = heute bis heute + 13 Tage (14 Kalendertage inkl. heute).
+  - `ab_datum` filtert nur innerhalb dieses Fensters; liegt es weiter als 13 Tage in der Zukunft,
+    ist die Liste leer (kein Fehler).
   - Fachrichtung: Teilstring-Vergleich wie Spec 002 (`innere` → `Innere Medizin`); mehrere Treffer
     (z. B. `medizin` an std-005) oder keiner → 422. Leerer Wert → 422.
   - Slot-ID nur in kanonischer Form gültig (Fachrichtung exakt wie im Katalog, Offset `+01:00`/`+02:00`);
@@ -64,7 +66,7 @@ Vorlage:
     `ollama stop qwen2.5:7b` (Rechner mit 16 GB ist beim letzten Mal eingefroren).
   - Während der Arbeit: Remote-Branch `spec/004-chat-assistent` löschen lassen – war auf GitHub schon
     gelöscht, nur die lokale Tracking-Referenz wurde per `git fetch --prune` entfernt.
-- Review-Ergebnis: Runde 1 „Änderungen nötig“ (2 blockierend): abgelehnte `slot_id` wurde
+- Review-Ergebnis: freigegeben nach 3 Runden. Runde 1 „Änderungen nötig“ (2 blockierend): abgelehnte `slot_id` wurde
   ungeprüft geloggt (Log-Injection, Namen im Log) und dieser Eintrag stand im Vorlagen-Codeblock.
   Beides behoben, pytest-Fall mit Zeilenumbruch und Namen in der `slot_id` ergänzt.
   Runde 2 „Änderungen nötig“ (1 blockierend): 422-Antworten wiederholten im Feld `input` Telefon,
