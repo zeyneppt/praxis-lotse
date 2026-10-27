@@ -1,6 +1,6 @@
 # Spec 007 – Evaluation der Antwortqualität
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 003, 004, 006
 **Abnahmetests:** `tests/acceptance/007_eval.robot` (Tag `spec-007`)
 
@@ -54,3 +54,12 @@ Prompt, Chunking oder Modell zeigt sofort, ob es besser oder schlechter wird.
 
 ## Umsetzungsnotizen
 
+Plan:
+
+1. `backend/app/eval.py` (`python -m app.eval`): lädt `EVAL_DATEI` (Standard `/eval/fragen.yaml`), ruft die laufende API über HTTP (`EVAL_API_URL`, Standard `http://localhost:8000`).
+2. Reine Bewertungsfunktionen (Begriffsvergleich ohne Groß-/Kleinschreibung, Rang in den Top 3, Kennzahlen, Schwellenwerte) – per pytest getestet.
+3. Modus `retrieval`: `wissen` über `/api/wissen/suche`, `notfall` über `/api/chat`.
+4. Modus `voll`: zusätzlich `wissen`/`standort` (`antwort_korrekt`) und `grenze` (`grenzen_eingehalten`); Ergebnis enthält `llm_provider`/`llm_model`. Nur mit `fake` smoke-getestet (Anweisung Mensch), echte Messung macht der Mensch.
+5. Berichte `ergebnis.json` und `ergebnis.md` nach `EVAL_AUSGABE` (Standard `/reports/eval`), Kennzahlen auch auf der Konsole; Exit-Code 1 bei Unterschreitung eines Schwellenwerts.
+6. `docker-compose.yml`: Mounts `./eval:/eval:ro` und `./reports:/reports`; `make eval` (mit `MODUS`) ruft `docker compose exec -T --user "$(id -u):$(id -g)" backend python -m app.eval`.
+7. CI-Job `eval` lädt `reports/eval/` als Artefakt hoch; README-Status 007 auf fertig.

@@ -62,6 +62,8 @@ jobs:
         with:
           node-version: "22"
       - run: cp .env.example .env
+      - name: Berichtsverzeichnisse anlegen (sonst legt Docker sie als root an)
+        run: mkdir -p reports/robot reports/eval
       - run: docker compose up -d --build
       - name: Auf /api/health warten
         run: |
@@ -102,6 +104,7 @@ jobs:
       - if: steps.spec007.outputs.aktiv == 'true'
         run: |
           cp .env.example .env
+          mkdir -p reports/robot reports/eval
           docker compose up -d --build
           for i in $(seq 1 60); do
             curl -sf http://localhost:8000/api/health && break
@@ -109,3 +112,8 @@ jobs:
           done
           make ingest
           make eval
+      - if: always() && steps.spec007.outputs.aktiv == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-berichte
+          path: reports/eval/

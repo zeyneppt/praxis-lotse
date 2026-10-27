@@ -31,6 +31,8 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/data:ro
+      - ./eval:/eval:ro
+      - ./reports:/reports
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

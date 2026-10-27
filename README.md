@@ -74,7 +74,7 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | 004 | Chat-Assistent mit Werkzeugen | fertig |
 | 005 | Terminanfrage | fertig |
 | 006 | Sicherheitsleitplanken | fertig |
-| 007 | Evaluation | offen |
+| 007 | Evaluation | fertig |
 | 008 | Chat-Oberfläche | offen |
 
 ## Datenschutz

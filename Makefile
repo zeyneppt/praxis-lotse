@@ -15,6 +15,7 @@ endif
 .PHONY: up down ingest lint test acceptance acceptance-llm eval
 
 up:
+	mkdir -p reports/robot reports/eval
 	docker compose up -d --build
 
 down:
@@ -23,8 +24,11 @@ down:
 ingest:
 	docker compose exec -T backend python -m app.ingest
 
+# MODUS=retrieval (Standard) oder voll (braucht LLM_PROVIDER=ollama oder anthropic).
+# reports/eval vorher anlegen, damit der Ordner der aufrufenden Person gehört.
 eval:
-	@echo "make eval: noch nicht umgesetzt (Spec 007)."
+	mkdir -p reports/eval
+	docker compose exec -T --user "$$(id -u):$$(id -g)" -e EVAL_MODUS=$(or $(MODUS),retrieval) backend python -m app.eval
 
 $(VENV)/.installiert: backend/pyproject.toml
 	$(PYTHON) -m venv $(VENV)
