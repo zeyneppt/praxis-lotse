@@ -10,8 +10,10 @@ from pydantic import ValidationError
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.pool import StaticPool
 
-from app.api_termine import get_terminsystem
+from app.api_termine import get_termine_ratenbegrenzer, get_terminsystem
+from app.logging import redact
 from app.main import app
+from app.ratenbegrenzung import LIMIT_MELDUNG, Ratenbegrenzer
 from app.standorte import load_katalog
 from app.termine import (
     ZEITZONE,
@@ -360,6 +362,8 @@ def test_gueltige_grenzwerte(felder: dict[str, Any]) -> None:
 @pytest.fixture
 def client(system: SimuliertesTerminsystem) -> Iterator[TestClient]:
     app.dependency_overrides[get_terminsystem] = lambda: system
+    begrenzer = Ratenbegrenzer(limit=1000)
+    app.dependency_overrides[get_termine_ratenbegrenzer] = lambda: begrenzer
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -432,7 +436,8 @@ def test_api_anfrage_ohne_personenbezogene_daten(
         assert "1970-05-14" not in text
         assert "170 0000000" not in text
     assert f"anfrage_id={angelegt.json()['anfrage_id']}" in caplog.text
-    assert slot["slot_id"] in caplog.text
+    # Alle Logs laufen durch redact(): das Datum im Slot ist dort ein Platzhalter.
+    assert redact(slot["slot_id"]) in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -499,3 +504,14 @@ def test_api_telefon_ohne_genug_ziffern(client: TestClient) -> None:
     assert antwort.status_code == 422
     assert antwort.json()["detail"][0]["loc"] == ["body", "telefon"]
     assert "mindestens 6 Ziffern" in antwort.json()["detail"][0]["msg"]
+
+
+def test_api_anfrage_wird_begrenzt(client: TestClient) -> None:
+    begrenzer = Ratenbegrenzer(limit=2)
+    app.dependency_overrides[get_termine_ratenbegrenzer] = lambda: begrenzer
+    # Ungültige Anfragen (422) zählen mit: Das Limit gilt für jeden Aufruf des Endpunkts.
+    codes = [client.post("/api/termine/anfragen", json={}).status_code for _ in range(3)]
+
+    assert codes == [422, 422, 429]
+    antwort = client.post("/api/termine/anfragen", json={})
+    assert antwort.json() == {"detail": LIMIT_MELDUNG}

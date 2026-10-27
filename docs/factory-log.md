@@ -22,6 +22,36 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 006 – Sicherheitsleitplanken und Datenschutz im Betrieb (2026-10-27)
+
+- Durchläufe bis alle Tests grün: pytest 3 Läufe, `make acceptance SPEC=006` 1 Lauf (11/11, inkl. Suite 999).
+  `make acceptance` (alle Specs, ohne `llm`): 52/53; fehlgeschlagen ist nur Spec 001 „Frontend zeigt die
+  Überschrift", weil in meiner Test-Umgebung die Browser Library fehlt (siehe offene Punkte), kein Codefehler.
+- `llm`-Tests (`make acceptance-llm`) nicht ausgeführt: `LLM_PROVIDER=fake` auf Anweisung, Ollama nicht gestartet.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Telefon-Regex schluckte Teile von UUIDs (`92125798-47ed-…`) und Slot-Daten; von
+    `test_api_anfrage_ohne_personenbezogene_daten` gefunden. Jetzt: Bindestrich/Buchstaben direkt neben
+    der Ziffernfolge schließen einen Treffer aus; Datumsmuster mit `(?<!\d)`/`(?!\d)` statt `\b`.
+  - „sich das Leben genommen" wurde nicht erkannt (nur `nehmen`); Muster um `genomm` ergänzt.
+  - `sed -i` (macOS) scheiterte; per Python ersetzt.
+- Getroffene Annahmen:
+  - Zusatz des Menschen: `POST /api/termine/anfragen` ist ebenfalls begrenzt, mit eigenem Zähler pro IP
+    und **20 Anfragen/Minute** (Zahl von mir gewählt, die Spec nennt keine). Auch 422-Aufrufe zählen.
+  - Der Fehler-Log in `api_chat.py` ruft `redact()` explizit auf (zusätzlich zum Handler-Filter).
+  - IP = `request.client.host`. Hinter einem Reverse Proxy wäre das die Proxy-Adresse; `X-Forwarded-For`
+    wird bewusst nicht ausgewertet (fälschbar).
+  - Seelische Krise hat Vorrang vor körperlichem Notfall; beide Antworten kommen aus `texte.py`.
+  - Antwort mit Kanarienkennung (ohne Groß-/Kleinschreibung) → Standardantwort, `kategorie: "normal"`, keine Quellen.
+  - Markierung als Daten (`<nutzereingabe>`, `<werkzeugergebnis>`) erfolgt in den Providern `ollama`/`anthropic`,
+    nicht im `fake`-Provider, damit dessen Suche unverändert bleibt.
+  - Das Datum im geloggten `slot_id` wird durch `redact()` zu `[DATUM]`; `test_termine.py` erwartet `redact(slot_id)`.
+  - Bestehende Tests angepasst (`test_llm.py`, `test_chat.py`, `test_termine.py`), da Markierung und Limit-Fixtures neu sind.
+- Offene Punkte:
+  - Lokal fehlt `robot`; ich habe Robot + RequestsLibrary in einer temporären venv installiert. Browser Library
+    nicht (Node-Init), daher Spec 001 Frontend-Test hier nicht lauffähig.
+  - Ratenbegrenzer liegt im Prozessspeicher: bei mehreren Backend-Instanzen gilt das Limit je Instanz.
+  - Notfall-Muster sind absichtlich weit gefasst; Falsch-Positive möglich (z. B. „nicht mehr bewegen" in anderem Kontext).
+
 ## Spec 005 – Terminanfrage über ein simuliertes Terminsystem (2026-10-27)
 
 - Durchläufe bis alle Tests grün: 1 Abnahmelauf (spec-005 12/12 im ersten Lauf); pytest brauchte 2 Läufe.

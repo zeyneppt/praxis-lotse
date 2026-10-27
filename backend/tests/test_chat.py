@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app import werkzeuge
-from app.api_chat import get_provider, get_sitzungen, get_system_prompt
+from app.api_chat import get_provider, get_ratenbegrenzer, get_sitzungen, get_system_prompt
 from app.api_standorte import get_katalog
 from app.api_termine import get_terminsystem
 from app.api_wissen import get_embedder, get_session
@@ -34,6 +34,7 @@ from app.llm.base import (
 )
 from app.llm.fake import FakeProvider
 from app.main import app
+from app.ratenbegrenzung import Ratenbegrenzer
 from app.sitzungen import SitzungsSpeicher
 from app.standorte import Oeffnungszeiten, Standort, StandortKatalog
 from app.termine import (
@@ -592,6 +593,8 @@ def client(suche: list[Treffer], sitzungen: SitzungsSpeicher) -> Iterator[TestCl
     app.dependency_overrides[get_provider] = FakeProvider
     app.dependency_overrides[get_system_prompt] = lambda: "system"
     app.dependency_overrides[get_sitzungen] = lambda: sitzungen
+    begrenzer = Ratenbegrenzer()
+    app.dependency_overrides[get_ratenbegrenzer] = lambda: begrenzer
     app.dependency_overrides[get_terminsystem] = StubTerminsystem
     yield TestClient(app)
     app.dependency_overrides.clear()
