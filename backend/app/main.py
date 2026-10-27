@@ -1,13 +1,17 @@
 """FastAPI-Anwendung des Praxis-Lotse."""
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.api_chat import router as chat_router
@@ -61,6 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.embedder = FastEmbedder(settings.embedding_model)
     yield
     loeschjob.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await loeschjob
 
 
 app = FastAPI(title="Praxis-Lotse", lifespan=lifespan)
@@ -70,6 +76,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_without_input(
+    request: Request, fehler: RequestValidationError
+) -> JSONResponse:
+    """422 wie bei FastAPI, aber ohne `input` und `ctx`.
+
+    Die Standardantwort wiederholt die Eingabe im Klartext, z. B. Telefon oder
+    Geburtsdatum einer Terminanfrage oder eine Chat-Nachricht.
+    """
+    details = [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in fehler.errors()]
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": jsonable_encoder(details)},
+    )
+
+
 app.include_router(standorte_router)
 app.include_router(wissen_router)
 app.include_router(chat_router)

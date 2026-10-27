@@ -105,6 +105,6 @@ Plan (2026-10-27):
    `termin_vorschlag` mit den Slots des letzten erfolgreichen Aufrufs; Systemprompt ergänzen.
 8. pytest: Slot-Erzeugung, Validierung, Speicher (SQLite in-memory), API, Werkzeug, Chat-Aktion.
 
-Ergebnis (2026-10-27): `make lint` grün, `make test` 235/235, `make acceptance SPEC=005` 12/12,
+Ergebnis (2026-10-27): `make lint` grün, `make test` 238/238 (nach Review), `make acceptance SPEC=005` 12/12,
 `make acceptance` 42/42. `make acceptance-llm` einmal mit Ollama: 44/47
 (005 „Chat schlägt freie Termine vor" rot, Details und Annahmen im Factory-Log).

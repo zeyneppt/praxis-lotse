@@ -67,6 +67,11 @@ Vorlage:
 - Review-Ergebnis: Runde 1 „Änderungen nötig“ (2 blockierend): abgelehnte `slot_id` wurde
   ungeprüft geloggt (Log-Injection, Namen im Log) und dieser Eintrag stand im Vorlagen-Codeblock.
   Beides behoben, pytest-Fall mit Zeilenumbruch und Namen in der `slot_id` ergänzt.
+  Runde 2 „Änderungen nötig“ (1 blockierend): 422-Antworten wiederholten im Feld `input` Telefon,
+  Geburtsdatum und Name im Klartext (in Runde 1 noch als Hinweis eingestuft). Behoben mit einem
+  globalen Handler für `RequestValidationError`, der nur `loc`, `msg` und `type` liefert (gilt auch
+  für `/api/chat`). Außerdem aus den Hinweisen: exakter Fachrichtungs-Treffer gewinnt,
+  Löschjob wird beim Herunterfahren abgewartet. pytest 238/238.
 
 ## Spec 004 – Chat-Assistent mit Werkzeugen (2026-10-25)
 

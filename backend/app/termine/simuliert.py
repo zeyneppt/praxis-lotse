@@ -78,9 +78,14 @@ def ist_belegt(standort_id: str, fachrichtung: str, beginn: datetime) -> bool:
 
 
 def resolve_fachrichtung(standort: Standort, fachrichtung: str) -> str:
-    """Vergleich wie in Spec 002, aber es muss genau eine Fachrichtung passen."""
+    """Vergleich wie in Spec 002, aber es muss genau eine Fachrichtung passen.
+
+    Ein exakter Treffer gewinnt, sonst wäre z. B. „Innere Medizin" neben
+    „Innere Medizin – Kardiologie" mehrdeutig.
+    """
     gesucht = normalize(fachrichtung.strip())
-    treffer = [f for f in standort.fachrichtungen if gesucht and gesucht in normalize(f)]
+    exakt = [f for f in standort.fachrichtungen if gesucht == normalize(f)]
+    treffer = exakt or [f for f in standort.fachrichtungen if gesucht and gesucht in normalize(f)]
     if len(treffer) != 1:
         raise FachrichtungUngueltig(
             f"Standort {standort.id} hat keine eindeutige Fachrichtung '{fachrichtung}'. "

@@ -21,7 +21,13 @@ from app.termine import (
     StandortUnbekannt,
     TerminNichtVerfuegbar,
 )
-from app.termine.simuliert import Base, ist_belegt, parse_oeffnungszeiten, slot_id
+from app.termine.simuliert import (
+    Base,
+    ist_belegt,
+    parse_oeffnungszeiten,
+    resolve_fachrichtung,
+    slot_id,
+)
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 KATALOG = load_katalog(DATA_DIR)
@@ -450,3 +456,31 @@ def test_api_abgelehnte_slot_id_landet_nicht_im_log(
     assert "Terminanfrage abgelehnt" in caplog.text
     assert "Mustermann" not in caplog.text
     assert "gefälschte Zeile" not in caplog.text
+
+
+def test_exakte_fachrichtung_gewinnt(engine: Engine) -> None:
+    standort = KATALOG.get("std-001")
+    assert standort is not None
+    erweitert = standort.model_copy(
+        update={"fachrichtungen": ["Innere Medizin", "Innere Medizin – Kardiologie"]}
+    )
+    assert resolve_fachrichtung(erweitert, "innere medizin") == "Innere Medizin"
+    with pytest.raises(FachrichtungUngueltig):
+        resolve_fachrichtung(erweitert, "innere")
+
+
+def test_api_422_wiederholt_keine_personenbezogenen_daten(client: TestClient) -> None:
+    antworten = [
+        client.post("/api/termine/anfragen", json=body("x", telefon="bitte 0911 anrufen")),
+        client.post("/api/termine/anfragen", json=body("x", geburtsdatum="2099-01-01")),
+        client.post("/api/termine/anfragen", json=body("x", name="E")),
+        client.post("/api/termine/anfragen", json=body("x", name="Erika Mustermann" * 10)),
+        client.post("/api/termine/anfragen", json={"name": "Erika Mustermann"}),
+    ]
+
+    for antwort in antworten:
+        assert antwort.status_code == 422
+        fehler = antwort.json()["detail"]
+        assert fehler and all(set(e) == {"loc", "msg", "type"} for e in fehler)
+        for geheim in ("0911", "2099-01-01", "Mustermann", '"E"'):
+            assert geheim not in antwort.text
