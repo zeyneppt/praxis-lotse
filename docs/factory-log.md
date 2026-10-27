@@ -22,6 +22,31 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 007 – Evaluation der Antwortqualität (2026-10-27)
+
+- Durchläufe bis alle Tests grün: pytest 2 Läufe (erster: ruff E501/Format in den neuen Dateien),
+  `make eval` 1 Lauf, `make acceptance SPEC=007` 1 Lauf (2/2). `make acceptance` (alle Specs, ohne `llm`):
+  54/55; fehlgeschlagen ist nur Spec 001 „Frontend zeigt die Überschrift" (Browser Library fehlt in meiner
+  Test-Umgebung, wie schon bei Spec 006), kein Codefehler.
+- `llm`-Tests und echte Messung im Modus `voll` nicht ausgeführt: `LLM_PROVIDER=fake` auf Anweisung, Ollama nicht gestartet.
+  `make eval MODUS=voll` nur als Smoke-Test mit `fake` (Exit 0, `antwort_korrekt` 0.0 – erwartbar, `fake` antwortet nicht inhaltlich).
+  Die echte Messung macht der Mensch.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Zeilen > 100 Zeichen in `app/eval.py` und `tests/test_eval.py`; von `make lint` gefunden, mit `ruff format` bzw. Umbruch behoben.
+- Getroffene Annahmen:
+  - Die Evaluation ruft die laufende API über HTTP (`EVAL_API_URL`, Standard `http://localhost:8000`), statt Code direkt
+    zu importieren – gemessen wird, was Nutzer sehen. Läuft im Container mit `--user uid:gid`, braucht daher kein Schreibrecht außer in `/reports`.
+  - Pro Frage eine Zeile im Bericht; im Modus `voll` ist eine `wissen`-Frage nur bestanden, wenn Retrieval **und** Antwort stimmen.
+    Kennzahlen werden dagegen getrennt aus den Einzelprüfungen berechnet.
+  - Kennzahlen ohne passende Fragen werden weggelassen; Schwellenwerte für fehlende Kennzahlen lösen keinen Fehler aus.
+  - Moduswahl über `MODUS=voll` im Makefile → `EVAL_MODUS` im Container (zusätzlich `--modus`).
+  - Makefile legt `reports/eval` vor dem Aufruf an, damit der Ordner der aufrufenden Person gehört (nicht root via Docker-Mount).
+  - Der Chat-Rate-Limiter (60/min) reicht für die ~30 Fragen; es gibt keine Wartelogik bei 429.
+  - CI-Job `eval` hatte die Prüfung „Spec 007 fertig" schon; ergänzt wurde nur der Artefakt-Upload (`if: always()`).
+- Offene Punkte:
+  - Schwellenwerte für `antwort_korrekt`/`grenzen_eingehalten` fehlen in `fragen.yaml` (geschützt); nach den ersten echten Messungen ergänzen.
+  - Lokal fehlt `robot`; temporäre venv mit Robot + RequestsLibrary, keine Browser Library.
+
 ## Spec 006 – Sicherheitsleitplanken und Datenschutz im Betrieb (2026-10-27)
 
 - Durchläufe bis alle Tests grün: pytest 3 Läufe, `make acceptance SPEC=006` 1 Lauf (11/11, inkl. Suite 999).
@@ -34,6 +59,7 @@ Vorlage:
     der Ziffernfolge schließen einen Treffer aus; Datumsmuster mit `(?<!\d)`/`(?!\d)` statt `\b`.
   - „sich das Leben genommen" wurde nicht erkannt (nur `nehmen`); Muster um `genomm` ergänzt.
   - `sed -i` (macOS) scheiterte; per Python ersetzt.
+  - Nachtrag (auf Anweisung des Menschen): Notfall-Muster „schnappt nach Luft“ wurde im ersten Versuch mit umgekehrter Wortreihenfolge geschrieben; pytest wurde rot, der Agent hat es korrigiert.
 - Getroffene Annahmen:
   - Zusatz des Menschen: `POST /api/termine/anfragen` ist ebenfalls begrenzt, mit eigenem Zähler pro IP
     und **20 Anfragen/Minute** (Zahl von mir gewählt, die Spec nennt keine). Auch 422-Aufrufe zählen.

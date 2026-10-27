@@ -109,3 +109,8 @@ jobs:
           done
           make ingest
           make eval
+      - if: always() && steps.spec007.outputs.aktiv == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-berichte
+          path: reports/eval/
