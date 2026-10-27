@@ -6,6 +6,22 @@ Ein Eintrag pro Spec. Neue Einträge oben.
 Vorlage:
 
 ```markdown
+## Spec NNN – <Titel> (<Datum>)
+
+- Durchläufe bis alle Tests grün: <n>
+- Fehler des Agenten und wie sie erkannt wurden:
+  - <z. B. „Fachrichtungsfilter war case-sensitiv – vom Robot-Test 002 gefunden">
+- Getroffene Annahmen:
+  - ...
+- Eingriffe durch den Menschen:
+  - <z. B. „Spec präzisiert, weil Öffnungszeiten-Format unklar war">
+- Review-Ergebnis: freigegeben nach <n> Runden
+```
+
+---
+
+<!-- Einträge ab hier -->
+
 ## Spec 005 – Terminanfrage über ein simuliertes Terminsystem (2026-10-27)
 
 - Durchläufe bis alle Tests grün: 1 Abnahmelauf (spec-005 12/12 im ersten Lauf); pytest brauchte 2 Läufe.
@@ -48,23 +64,9 @@ Vorlage:
     `ollama stop qwen2.5:7b` (Rechner mit 16 GB ist beim letzten Mal eingefroren).
   - Während der Arbeit: Remote-Branch `spec/004-chat-assistent` löschen lassen – war auf GitHub schon
     gelöscht, nur die lokale Tracking-Referenz wurde per `git fetch --prune` entfernt.
-- Review-Ergebnis: steht aus.
-
-## Spec NNN – <Titel> (<Datum>)
-
-- Durchläufe bis alle Tests grün: <n>
-- Fehler des Agenten und wie sie erkannt wurden:
-  - <z. B. „Fachrichtungsfilter war case-sensitiv – vom Robot-Test 002 gefunden">
-- Getroffene Annahmen:
-  - ...
-- Eingriffe durch den Menschen:
-  - <z. B. „Spec präzisiert, weil Öffnungszeiten-Format unklar war">
-- Review-Ergebnis: freigegeben nach <n> Runden
-```
-
----
-
-<!-- Einträge ab hier -->
+- Review-Ergebnis: Runde 1 „Änderungen nötig“ (2 blockierend): abgelehnte `slot_id` wurde
+  ungeprüft geloggt (Log-Injection, Namen im Log) und dieser Eintrag stand im Vorlagen-Codeblock.
+  Beides behoben, pytest-Fall mit Zeilenumbruch und Namen in der `slot_id` ergänzt.
 
 ## Spec 004 – Chat-Assistent mit Werkzeugen (2026-10-25)
 

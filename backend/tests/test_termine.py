@@ -436,3 +436,17 @@ def test_api_anfrage_ungueltig(client: TestClient, felder: dict[str, Any]) -> No
 @pytest.mark.parametrize("anfrage_id", ["00000000-0000-0000-0000-000000000000", "keine-uuid"])
 def test_api_unbekannte_anfrage(client: TestClient, anfrage_id: str) -> None:
     assert client.get(f"/api/termine/anfragen/{anfrage_id}").status_code == 404
+
+
+def test_api_abgelehnte_slot_id_landet_nicht_im_log(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    manipuliert = "Erika Mustermann 0170\nINFO: gefälschte Zeile"
+
+    with caplog.at_level(logging.INFO):
+        antwort = client.post("/api/termine/anfragen", json=body(manipuliert))
+
+    assert antwort.status_code == 409
+    assert "Terminanfrage abgelehnt" in caplog.text
+    assert "Mustermann" not in caplog.text
+    assert "gefälschte Zeile" not in caplog.text

@@ -56,7 +56,8 @@ def anfrage_stellen(anfrage: Anfrage, terminsystem: TerminsystemDep) -> AnfrageA
     try:
         antwort = terminsystem.anfrage_stellen(anfrage)
     except TerminNichtVerfuegbar:
-        logger.info("Terminanfrage abgelehnt: slot_id=%s nicht verfügbar", anfrage.slot_id)
+        # Ohne slot_id: Sie ist hier ungeprüfter Freitext des Clients (Log-Injection, ggf. Namen).
+        logger.info("Terminanfrage abgelehnt: Termin nicht verfügbar")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=NICHT_VERFUEGBAR) from None
     # Nur Kennungen, nie Name, Geburtsdatum oder Telefon.
     logger.info(
