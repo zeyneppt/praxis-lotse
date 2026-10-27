@@ -31,6 +31,11 @@ from app.sitzungen import SitzungsSpeicher
         "Ich habe Schmerzen in der Brust",
         "Er hat Atemnot",
         "Mein Kind bekommt keine Luft",
+        "Meine Mutter bekommt kaum Luft",
+        "Er bekommt kaum noch Luft",
+        "Ich kann kaum atmen",
+        "Sie kann kaum noch atmen",
+        "Mein Sohn schnappt nach Luft",
         "Mein Vater ist bewusstlos umgefallen",
         "Meine Mutter ist ohnmaechtig geworden",
         "Ich bin ohnmächtig geworden",
@@ -71,6 +76,8 @@ def test_seelische_krisen(text: str) -> None:
         "Wie bereite ich mich auf die Darmspiegelung vor?",
         "Mein Blutdruck ist stark erhöht, wann kann ich kommen?",
         "Kann ich einen Termin für eine Blutentnahme machen?",
+        "Im Wartezimmer ist kaum Platz, gibt es einen zweiten Eingang?",
+        "Ich habe kaum Zeit, welche Termine sind früh morgens frei?",
     ],
 )
 def test_normale_fragen_sind_kein_notfall(text: str) -> None:

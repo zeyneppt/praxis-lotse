@@ -71,9 +71,9 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | 001 | Projektgerüst, lokale Umgebung und CI | fertig |
 | 002 | Standortsuche | fertig |
 | 003 | Wissensbasis und semantische Suche | fertig |
-| 004 | Chat-Assistent mit Werkzeugen | offen |
-| 005 | Terminanfrage | offen |
-| 006 | Sicherheitsleitplanken | offen |
+| 004 | Chat-Assistent mit Werkzeugen | fertig |
+| 005 | Terminanfrage | fertig |
+| 006 | Sicherheitsleitplanken | fertig |
 | 007 | Evaluation | offen |
 | 008 | Chat-Oberfläche | offen |
 

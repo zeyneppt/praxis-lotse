@@ -27,6 +27,7 @@ _KOERPERLICH = [
     r"atemnot|luftnot|atembeschwerde|atemprobleme",
     r"nicht\s+(?:mehr\s+)?atmen",
     r"keine\s+luft|schlecht\w*\s+luft|ringt?\s+nach\s+luft",
+    r"kaum\s+(?:noch\s+)?luft|kaum\s+(?:noch\s+)?atmen|schnapp\w*\s+nach\s+luft",
     r"bewusstlos|bewusstseinsverlust|nicht\s+(?:mehr\s+)?ansprechbar",
     r"ohnmaecht|ohnmacht|kollabiert",
     r"schlaganfall|hirnschlag",
