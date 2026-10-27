@@ -1,6 +1,7 @@
 import json
 import logging
 from collections.abc import Iterator
+from datetime import date
 from typing import Any
 
 import pytest
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app import werkzeuge
 from app.api_chat import get_provider, get_sitzungen, get_system_prompt
 from app.api_standorte import get_katalog
+from app.api_termine import get_terminsystem
 from app.api_wissen import get_embedder, get_session
 from app.chat import (
     FEHLER_ANTWORT,
@@ -34,7 +36,15 @@ from app.llm.fake import FakeProvider
 from app.main import app
 from app.sitzungen import SitzungsSpeicher
 from app.standorte import Oeffnungszeiten, Standort, StandortKatalog
-from app.werkzeuge import WISSEN_K, Werkzeugkasten
+from app.termine import (
+    Anfrage,
+    AnfrageAntwort,
+    FachrichtungUngueltig,
+    Slot,
+    StandortUnbekannt,
+    Terminsystem,
+)
+from app.werkzeuge import MAX_TERMINE, WISSEN_K, Werkzeugkasten
 from app.wissen import Treffer
 
 ZEITEN = Oeffnungszeiten(mo="8–12", di="8–12", mi="8–12", do="8–12", fr="8–12")
@@ -92,8 +102,50 @@ def suche(monkeypatch: pytest.MonkeyPatch) -> list[Treffer]:
     return ergebnis
 
 
-def kasten() -> Werkzeugkasten:
-    return Werkzeugkasten(KATALOG, None, FakeEmbedder())  # type: ignore[arg-type]
+def slot(minute: int) -> Slot:
+    beginn = f"2026-10-28T09:{minute:02d}:00+01:00"
+    return Slot(
+        slot_id=f"std-1|Gastroenterologie|{beginn}",
+        standort_id="std-1",
+        standort_name="MVZ Erlangen",
+        fachrichtung="Gastroenterologie",
+        beginn=beginn,
+    )
+
+
+class StubTerminsystem(Terminsystem):
+    """Liefert für std-1/Gastroenterologie `limit` Termine und merkt sich die Aufrufe."""
+
+    def __init__(self) -> None:
+        self.aufrufe: list[tuple[str, str, date | None, int]] = []
+
+    def freie_termine(
+        self, standort_id: str, fachrichtung: str, ab_datum: date | None, limit: int
+    ) -> list[Slot]:
+        self.aufrufe.append((standort_id, fachrichtung, ab_datum, limit))
+        if standort_id != "std-1":
+            raise StandortUnbekannt(standort_id)
+        if fachrichtung.casefold() != "gastroenterologie":
+            raise FachrichtungUngueltig("Standort std-1 hat keine Fachrichtung 'x'")
+        return [slot(m) for m in range(limit)]
+
+    def anfrage_stellen(self, anfrage: Anfrage) -> AnfrageAntwort:
+        raise AssertionError("Der Chat darf keine Anfrage anlegen")
+
+    def anfrage_abrufen(self, anfrage_id: str) -> AnfrageAntwort | None:
+        raise AssertionError("nicht erwartet")
+
+    def alte_anfragen_loeschen(self) -> int:
+        raise AssertionError("nicht erwartet")
+
+
+def kasten(terminsystem: Terminsystem | None = None) -> Werkzeugkasten:
+    return Werkzeugkasten(
+        KATALOG,
+        None,  # type: ignore[arg-type]
+        FakeEmbedder(),
+        terminsystem or StubTerminsystem(),
+    )
 
 
 def call(name: str, arguments: str, id: str = "c1") -> ToolCall:
@@ -103,8 +155,57 @@ def call(name: str, arguments: str, id: str = "c1") -> ToolCall:
 # --- Werkzeuge ---------------------------------------------------------------
 
 
-def test_werkzeuge_ohne_freie_termine() -> None:
-    assert [s.name for s in kasten().specs] == ["standorte_suchen", "wissen_suchen"]
+def test_werkzeuge_mit_freie_termine() -> None:
+    assert [s.name for s in kasten().specs] == [
+        "standorte_suchen",
+        "wissen_suchen",
+        "freie_termine_suchen",
+    ]
+
+
+def test_freie_termine_suchen_liefert_hoechstens_fuenf_und_merkt_vorschlag() -> None:
+    terminsystem = StubTerminsystem()
+    k = kasten(terminsystem)
+    argumente = '{"standort_id": "std-1", "fachrichtung": "Gastroenterologie", "ab_datum": null}'
+
+    ergebnis = k.execute(call("freie_termine_suchen", argumente))
+
+    assert not ergebnis.is_error
+    termine = json.loads(ergebnis.content)["termine"]
+    assert len(termine) == MAX_TERMINE == 5
+    assert terminsystem.aufrufe == [("std-1", "Gastroenterologie", None, 5)]
+    assert k.termin_vorschlag == [slot(m) for m in range(5)]
+    assert [t["slot_id"] for t in termine] == [s.slot_id for s in k.termin_vorschlag]
+    assert k.gelieferte_dokumente == {}
+
+
+def test_freie_termine_suchen_reicht_ab_datum_weiter() -> None:
+    terminsystem = StubTerminsystem()
+    argumente = (
+        '{"standort_id": "std-1", "fachrichtung": "gastroenterologie", "ab_datum": "2026-11-02"}'
+    )
+
+    kasten(terminsystem).execute(call("freie_termine_suchen", argumente))
+
+    assert terminsystem.aufrufe[0][2] == date(2026, 11, 2)
+
+
+@pytest.mark.parametrize(
+    ("argumente", "meldung"),
+    [
+        ('{"standort_id": "std-9", "fachrichtung": "Gastroenterologie"}', "Unbekannte standort_id"),
+        ('{"standort_id": "std-1", "fachrichtung": "Neurologie"}', "keine Fachrichtung"),
+        ('{"standort_id": "std-1"}', "fachrichtung: missing"),
+        ('{"standort_id": "std-1", "fachrichtung": "x", "ab_datum": "morgen"}', "ab_datum"),
+    ],
+)
+def test_freie_termine_suchen_fehler_ergeben_keinen_vorschlag(argumente: str, meldung: str) -> None:
+    k = kasten()
+    ergebnis = k.execute(call("freie_termine_suchen", argumente))
+
+    assert ergebnis.is_error
+    assert meldung in json.loads(ergebnis.content)["fehler"]
+    assert k.termin_vorschlag is None
 
 
 def test_standorte_suchen_liefert_standorte_und_merkt_verzeichnis() -> None:
@@ -491,6 +592,7 @@ def client(suche: list[Treffer], sitzungen: SitzungsSpeicher) -> Iterator[TestCl
     app.dependency_overrides[get_provider] = FakeProvider
     app.dependency_overrides[get_system_prompt] = lambda: "system"
     app.dependency_overrides[get_sitzungen] = lambda: sitzungen
+    app.dependency_overrides[get_terminsystem] = StubTerminsystem
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -570,3 +672,32 @@ def test_api_chat_loggt_keinen_nachrichtentext(
     assert "Chat: Nachricht mit 25 Zeichen" in caplog.text
     assert "LLM-Anbieter fehlgeschlagen" in caplog.text
     assert "Mustermann" not in caplog.text
+
+
+class TerminProvider:
+    """Ruft zuerst freie_termine_suchen auf und antwortet dann mit Text."""
+
+    def complete(
+        self,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec],
+        allow_tools: bool = True,
+    ) -> AssistantMessage:
+        if isinstance(messages[-1], UserMessage):
+            argumente = '{"standort_id": "std-1", "fachrichtung": "Gastroenterologie"}'
+            return AssistantMessage("", [ToolCall("t1", "freie_termine_suchen", argumente)])
+        return AssistantMessage("Hier sind freie Termine.\nQuellen: keine")
+
+    def check_available(self) -> None:
+        return None
+
+
+def test_api_chat_liefert_termin_vorschlag(client: TestClient) -> None:
+    app.dependency_overrides[get_provider] = TerminProvider
+
+    daten = client.post("/api/chat", json={"nachricht": "Termin in Erlangen?"}).json()
+
+    assert daten["aktion"]["typ"] == "termin_vorschlag"
+    assert daten["aktion"]["slots"] == [slot(m).model_dump() for m in range(5)]
+    assert daten["antwort"] == "Hier sind freie Termine."

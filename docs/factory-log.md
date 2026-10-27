@@ -22,6 +22,67 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 005 – Terminanfrage über ein simuliertes Terminsystem (2026-10-27)
+
+- Durchläufe bis alle Tests grün: 1 Abnahmelauf (spec-005 12/12 im ersten Lauf); pytest brauchte 2 Läufe.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - `anfrage_stellen` las `zeile.anfrage_id` nach `commit()` außerhalb der Session
+    (`DetachedInstanceError`, 500). Von pytest gefunden; die UUID wird jetzt vor dem Insert erzeugt.
+  - `make acceptance` fand `robot` nicht im PATH; aufgerufen mit `ROBOT=.venv/bin/robot`
+    (Robot liegt in `.venv/` im Repo-Wurzelverzeichnis).
+- Getroffene Annahmen:
+  - „Die nächsten 14 Tage ab heute" = heute bis heute + 13 Tage (14 Kalendertage inkl. heute).
+  - `ab_datum` filtert nur innerhalb dieses Fensters; liegt es weiter als 13 Tage in der Zukunft,
+    ist die Liste leer (kein Fehler).
+  - Fachrichtung: Teilstring-Vergleich wie Spec 002 (`innere` → `Innere Medizin`); mehrere Treffer
+    (z. B. `medizin` an std-005) oder keiner → 422. Leerer Wert → 422.
+  - Slot-ID nur in kanonischer Form gültig (Fachrichtung exakt wie im Katalog, Offset `+01:00`/`+02:00`);
+    andere Schreibweisen desselben Zeitpunkts (`Z`, kleingeschrieben) → 409.
+  - „Belegt", wenn das erste Byte von `sha256(standort_id + fachrichtung + beginn_iso)` ≥ 128 ist.
+  - `aktion` enthält die Termine des **letzten erfolgreichen** Aufrufs von `freie_termine_suchen`,
+    auch wenn er leer war; fehlerhafte Aufrufe (unbekannter Standort, Fachrichtung) erzeugen keine `aktion`.
+  - `GET /api/termine/anfragen/{id}` mit ungültiger UUID → 404 (statt FastAPI-422), wie im Vertrag
+    nur `200`/`404` vorgesehen.
+  - Die Tabelle speichert keine Status-Spalte, da es nur `angefragt` gibt (Bestätigung/Absage nicht im Umfang).
+  - Engine mit `hide_parameters=True`: SQL-Fehler würden sonst Name/Telefon ins Log schreiben.
+    Gilt für alle Abfragen, ändert aber nur Fehlermeldungen.
+  - Unit-Tests für Speicher und API laufen gegen SQLite in-memory (das Projekt hat keine Test-DB);
+    der Postgres-Pfad ist durch die Abnahmetests abgedeckt.
+- `llm`-Tests (einmal am Ende, Ollama `qwen2.5:7b`, danach `ollama stop`): **44/47**.
+  - 004 „Antwort hat die Struktur aus dem Vertrag": ReadTimeout (60 s) beim ersten Aufruf (Kaltstart des Modells).
+  - 004 „Wissensfrage wird aus dem Dokument beantwortet": Antwort ohne „24 Stunden" (Antwortqualität).
+  - 005 „Chat schlägt freie Termine vor": `aktion` war `null`, das Modell hat `freie_termine_suchen` also
+    nicht erfolgreich aufgerufen. Ursache nicht belegt: Die Backend-Logs gingen beim Zurückschalten
+    auf `fake` mit dem Container verloren. Vermutung: Das Modell hört nach `standorte_suchen` auf.
+    Wegen des Arbeitsspeichers (16 GB) bewusst nicht wiederholt.
+- Offene Punkte:
+  - Für Spec 006 (Entscheidung des Menschen, 2026-10-27):
+    - Rate-Limit für `POST /api/termine/anfragen` (heute kann ein Client alle freien Slots wegbuchen).
+    - `api_chat.py` loggt bei `LlmError` die volle Fehlermeldung (`%s` mit `fehler`), obwohl laut
+      Kommentar nur der Fehlertyp geloggt werden soll – über `redact()` bzw. nur den Typ loggen.
+  - Werkzeugaufrufe nach Name im Chat-Log protokollieren (heute nur die Anzahl), damit sich
+    `llm`-Fehlschläge wie oben ohne erneuten Lauf erklären lassen.
+  - Ggf. Ein-Schritt-Variante: `freie_termine_suchen` mit Ort statt `standort_id`, damit kleine Modelle
+    nicht zwei Werkzeuge verketten müssen (wäre eine Spec-Änderung).
+  - Formular und Anzeige der Vorschläge folgen in Spec 008.
+- Eingriffe durch den Menschen:
+  - Spec-Änderung nach dem Review (gekennzeichnet als „Ergänzung (Mensch)" in Spec 005, Validierung):
+    `telefon` muss mindestens 6 Ziffern enthalten. Umgesetzt als zusätzlicher Validator; neue
+    pytest-Fälle (nur Leerzeichen, nur `+`/`-`/`/`, 5 Ziffern → 422; genau 6 Ziffern gültig). pytest 246/246.
+  - Rate-Limit für Terminanfragen und Fehlerlog in `api_chat.py` auf Spec 006 verschoben (siehe Offene Punkte).
+  - Vorgabe: Entwicklung mit `LLM_PROVIDER=fake`, `llm`-Tests höchstens einmal am Ende, danach
+    `ollama stop qwen2.5:7b` (Rechner mit 16 GB ist beim letzten Mal eingefroren).
+  - Während der Arbeit: Remote-Branch `spec/004-chat-assistent` löschen lassen – war auf GitHub schon
+    gelöscht, nur die lokale Tracking-Referenz wurde per `git fetch --prune` entfernt.
+- Review-Ergebnis: freigegeben nach 3 Runden. Runde 1 „Änderungen nötig“ (2 blockierend): abgelehnte `slot_id` wurde
+  ungeprüft geloggt (Log-Injection, Namen im Log) und dieser Eintrag stand im Vorlagen-Codeblock.
+  Beides behoben, pytest-Fall mit Zeilenumbruch und Namen in der `slot_id` ergänzt.
+  Runde 2 „Änderungen nötig“ (1 blockierend): 422-Antworten wiederholten im Feld `input` Telefon,
+  Geburtsdatum und Name im Klartext (in Runde 1 noch als Hinweis eingestuft). Behoben mit einem
+  globalen Handler für `RequestValidationError`, der nur `loc`, `msg` und `type` liefert (gilt auch
+  für `/api/chat`). Außerdem aus den Hinweisen: exakter Fachrichtungs-Treffer gewinnt,
+  Löschjob wird beim Herunterfahren abgewartet. pytest 238/238.
+
 ## Spec 004 – Chat-Assistent mit Werkzeugen (2026-10-25)
 
 - Durchläufe bis alle Tests grün: 1 für `make acceptance SPEC=004` (7/7 im ersten Lauf,

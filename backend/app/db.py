@@ -22,6 +22,9 @@ def get_engine() -> Engine:
     return create_engine(
         get_settings().database_url,
         pool_pre_ping=True,
+        # Fehlermeldungen ohne SQL-Parameter: Sie enthielten sonst z. B. Name und Telefon
+        # aus Terminanfragen, und unbehandelte Fehler landen im Log.
+        hide_parameters=True,
         connect_args={"connect_timeout": CONNECT_TIMEOUT_SECONDS},
     )
 
