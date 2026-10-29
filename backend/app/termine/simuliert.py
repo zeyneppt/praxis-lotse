@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import Date, DateTime, Engine, Text, Uuid, delete, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from app.standorte import Standort, StandortKatalog, normalize
@@ -21,6 +21,7 @@ from app.termine.base import (
     StandortUnbekannt,
     TerminNichtVerfuegbar,
     Terminsystem,
+    TerminsystemNichtErreichbar,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,15 +145,18 @@ class SimuliertesTerminsystem(Terminsystem):
             raise StandortUnbekannt(standort_id)
         fachrichtung = resolve_fachrichtung(standort, fachrichtung)
         jetzt = self._jetzt()
-        with Session(self._engine) as session:
-            angefragt = set(
-                session.scalars(
-                    select(TerminanfrageZeile.slot_id).where(
-                        TerminanfrageZeile.standort_id == standort.id,
-                        TerminanfrageZeile.fachrichtung == fachrichtung,
+        try:
+            with Session(self._engine) as session:
+                angefragt = set(
+                    session.scalars(
+                        select(TerminanfrageZeile.slot_id).where(
+                            TerminanfrageZeile.standort_id == standort.id,
+                            TerminanfrageZeile.fachrichtung == fachrichtung,
+                        )
                     )
                 )
-            )
+        except SQLAlchemyError as fehler:
+            raise TerminsystemNichtErreichbar(type(fehler).__name__) from fehler
         slots: list[Slot] = []
         for beginn in self._beginne(standort, jetzt.date()):
             if len(slots) >= limit:

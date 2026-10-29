@@ -22,6 +22,7 @@ from app.termine import (
     SimuliertesTerminsystem,
     StandortUnbekannt,
     TerminNichtVerfuegbar,
+    TerminsystemNichtErreichbar,
 )
 from app.termine.simuliert import (
     Base,
@@ -515,3 +516,12 @@ def test_api_anfrage_wird_begrenzt(client: TestClient) -> None:
     assert codes == [422, 422, 429]
     antwort = client.post("/api/termine/anfragen", json={})
     assert antwort.json() == {"detail": LIMIT_MELDUNG}
+
+
+def test_datenbankfehler_wird_zu_terminsystem_nicht_erreichbar(uhr: Uhr) -> None:
+    # Ohne Tabellen scheitert die Abfrage der schon angefragten Termine.
+    ohne_tabellen = create_engine("sqlite://", poolclass=StaticPool)
+    system = SimuliertesTerminsystem(KATALOG, ohne_tabellen, jetzt=uhr)
+
+    with pytest.raises(TerminsystemNichtErreichbar):
+        system.freie_termine("std-004", "Gastroenterologie", None, 5)

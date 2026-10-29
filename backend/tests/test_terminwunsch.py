@@ -9,7 +9,13 @@ from app.leitplanken import texte
 from app.leitplanken.terminwunsch import erkenne_terminwunsch, nennt_termin
 from app.llm.base import AssistantMessage, Message, ToolCall, ToolSpec, UserMessage
 from app.standorte import load_katalog
-from app.termine import Anfrage, AnfrageAntwort, Slot, Terminsystem
+from app.termine import (
+    Anfrage,
+    AnfrageAntwort,
+    Slot,
+    Terminsystem,
+    TerminsystemNichtErreichbar,
+)
 from app.werkzeuge import MAX_TERMINE, Werkzeugkasten
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -41,6 +47,9 @@ STANDORTVERZEICHNIS = [Quelle("standorte.json", "Standortverzeichnis")]
             "Lauf an der Pegnitz",
         ),
         ("Termin Allgemeinmedizin Nürnberg", "Allgemeinmedizin", "Nürnberg"),
+        # „termin" in zusammengesetzten Wörtern
+        ("Wunschtermin Kardiologie Schwabach", "Kardiologie", "Schwabach"),
+        ("Untersuchungstermin Gastroenterologie Fürth", "Gastroenterologie", "Fürth"),
     ],
 )
 def test_terminwunsch_erkannt(nachricht: str, fachrichtung: str, ort: str) -> None:
@@ -98,11 +107,67 @@ def test_terminwunsch_nennt_standorte_am_ort_und_im_verbund() -> None:
         ("Terminabsage bitte", True),
         ("TERMINE?", True),
         ("Ich möchte absagen", False),
-        ("Wann ist der Untersuchungstermin?", False),
+        ("Wann ist der Untersuchungstermin?", True),
+        ("Mein Wunschtermin wäre Montag", True),
+        ("Wann ist die Untersuchung?", False),
     ],
 )
 def test_nennt_termin(nachricht: str, erwartet: bool) -> None:
     assert nennt_termin(nachricht) is erwartet
+
+
+# Ergänzung (Mensch): Ein genannter Standort hat Vorrang vor dem Ort.
+@pytest.mark.parametrize(
+    ("nachricht", "standort_id", "am_ort"),
+    [
+        ("Termin Innere Medizin im MVZ Nürnberg Süd", "std-003", ["std-003"]),
+        ("Termin Innere Medizin in Nürnberg Süd", "std-003", ["std-003"]),
+        ("termin innere medizin mvz nuernberg sued", "std-003", ["std-003"]),
+        ("Termin Allgemeinmedizin im MVZ Nürnberg Nord", "std-002", ["std-002"]),
+        ("Termin Gastroenterologie im Fürth Zentrum", "std-004", ["std-004"]),
+        # Längere Nennung gewinnt: „MVZ Erlangen Süd" ist nicht „MVZ Erlangen".
+        ("Termin Gynäkologie im MVZ Erlangen Süd", "std-010", ["std-010"]),
+        ("Termin Neurologie im MVZ Erlangen", "std-009", ["std-009"]),
+        # Standort hat die Fachrichtung nicht
+        ("Termin Neurologie im MVZ Nürnberg Mitte", "std-001", []),
+        ("Termin Neurologie im MVZ Erlangen Süd", "std-010", []),
+        # Standort vor Ort, auch wenn ein zweiter Ort genannt ist
+        ("Termin Allgemeinmedizin im MVZ Stein, nicht in Feucht", "std-006", ["std-006"]),
+    ],
+)
+def test_genannter_standort_hat_vorrang(
+    nachricht: str, standort_id: str, am_ort: list[str]
+) -> None:
+    wunsch = erkenne_terminwunsch(nachricht, KATALOG)
+
+    assert wunsch is not None
+    assert wunsch.standort is not None
+    assert wunsch.standort.id == standort_id
+    assert [s.id for s in wunsch.am_ort] == am_ort
+
+
+@pytest.mark.parametrize(
+    ("nachricht", "ort", "am_ort"),
+    [
+        # Kurzname gleich dem Ort („MVZ Erlangen" → „Erlangen") zählt als Ort.
+        ("Termin Gynäkologie in Erlangen", "Erlangen", ["std-010"]),
+        ("Termin Neurologie in Erlangen", "Erlangen", ["std-009"]),
+        ("Termin Allgemeinmedizin in Stein", "Stein", ["std-006"]),
+    ],
+)
+def test_ort_ohne_standortnamen(nachricht: str, ort: str, am_ort: list[str]) -> None:
+    wunsch = erkenne_terminwunsch(nachricht, KATALOG)
+
+    assert wunsch is not None
+    assert wunsch.standort is None
+    assert wunsch.ort == ort
+    assert [s.id for s in wunsch.am_ort] == am_ort
+
+
+def test_zwei_genannte_standorte_sind_nicht_eindeutig() -> None:
+    nachricht = "Termin Innere Medizin im MVZ Nürnberg Süd oder MVZ Nürnberg West"
+
+    assert erkenne_terminwunsch(nachricht, KATALOG) is None
 
 
 # --- Antworten ohne LLM ------------------------------------------------------
@@ -191,8 +256,67 @@ def test_mehrere_standorte_werden_zur_auswahl_genannt() -> None:
     assert ergebnis.termin_vorschlag is None
     assert ergebnis.kategorie == "normal"
     assert ergebnis.quellen == STANDORTVERZEICHNIS
-    assert "MVZ Nürnberg Mitte, MVZ Nürnberg Süd und MVZ Nürnberg West" in ergebnis.antwort
+    assert ergebnis.antwort.startswith(
+        "In Nürnberg bieten mehrere Standorte Innere Medizin an: "
+        "MVZ Nürnberg Mitte, MVZ Nürnberg Süd und MVZ Nürnberg West."
+    )
+    assert "„Termin Innere Medizin im MVZ Nürnberg Mitte" in ergebnis.antwort
     assert "MVZ Nürnberg Nord" not in ergebnis.antwort
+
+
+def test_genannter_standort_liefert_seine_termine() -> None:
+    terminsystem = StubTerminsystem()
+
+    ergebnis = run_chat(
+        KeinLlm(),
+        "system",
+        [],
+        "Termin Innere Medizin im MVZ Nürnberg Süd",
+        kasten(terminsystem),
+    )
+
+    assert terminsystem.aufrufe == [("std-003", "Innere Medizin", None, MAX_TERMINE)]
+    assert ergebnis.termin_vorschlag == [slot("std-003", "Innere Medizin", m) for m in range(5)]
+    assert "MVZ Nürnberg Süd" in ergebnis.antwort
+
+
+def test_genannter_standort_ohne_fachrichtung_nennt_anbieter() -> None:
+    terminsystem = StubTerminsystem()
+
+    ergebnis = run_chat(
+        KeinLlm(),
+        "system",
+        [],
+        "Termin Neurologie im MVZ Nürnberg Mitte",
+        kasten(terminsystem),
+    )
+
+    assert terminsystem.aufrufe == []
+    assert ergebnis.termin_vorschlag is None
+    assert ergebnis.quellen == STANDORTVERZEICHNIS
+    assert ergebnis.antwort == (
+        "Im MVZ Nürnberg Mitte gibt es keine Neurologie. "
+        "Neurologie gibt es im Verbund hier: MVZ Nürnberg Süd und MVZ Erlangen."
+    )
+
+
+class AusgefallenesTerminsystem(StubTerminsystem):
+    def freie_termine(
+        self, standort_id: str, fachrichtung: str, ab_datum: date | None, limit: int
+    ) -> list[Slot]:
+        raise TerminsystemNichtErreichbar("OperationalError")
+
+
+def test_ausfall_des_terminsystems_wird_weitergereicht() -> None:
+    # Die freundliche Antwort mit kategorie "fehler" baut die API (siehe test_chat.py).
+    with pytest.raises(TerminsystemNichtErreichbar):
+        run_chat(
+            KeinLlm(),
+            "system",
+            [],
+            "Termin Gastroenterologie Fürth",
+            kasten(AusgefallenesTerminsystem()),
+        )
 
 
 def test_fachrichtung_nicht_am_ort_nennt_anbieter_im_verbund() -> None:
@@ -259,6 +383,8 @@ class ErfinderProvider:
         "Freie Termine: Donnerstag, 2. Februar um 09:00.",
         "Sie können um 9.30 kommen.",
         "Kommen Sie am Montag um 10 Uhr.",
+        "kommen sie um 10 uhr.",
+        "Termin: 14 UHR",
     ],
 )
 def test_erfundene_uhrzeit_wird_ersetzt(erfunden: str, caplog: pytest.LogCaptureFixture) -> None:
@@ -277,6 +403,18 @@ def test_erfundene_uhrzeit_wird_ersetzt(erfunden: str, caplog: pytest.LogCapture
     assert ergebnis.termin_vorschlag is None
     assert "Leitplanke" in caplog.text
     assert "Hausarzt" not in caplog.text
+
+
+def test_uhrzeit_bei_zusammengesetztem_terminwort_wird_ersetzt() -> None:
+    ergebnis = run_chat(
+        ErfinderProvider("Ihr Untersuchungstermin ist um 9:30."),
+        "system",
+        [],
+        "Wann ist mein Untersuchungstermin?",
+        kasten(StubTerminsystem()),
+    )
+
+    assert ergebnis.antwort == texte.TERMIN_NUR_AUS_TERMINSYSTEM
 
 
 def test_uhrzeit_ohne_terminwort_bleibt() -> None:
@@ -316,3 +454,19 @@ def test_uhrzeit_nach_leerem_terminsystem_wird_ersetzt() -> None:
     )
 
     assert ergebnis.antwort == texte.TERMIN_NUR_AUS_TERMINSYSTEM
+
+
+def test_leere_terminliste_im_llm_ablauf_ergibt_keine_aktion() -> None:
+    argumente = '{"standort_id": "std-004", "fachrichtung": "Gastroenterologie"}'
+    ergebnis = run_chat(
+        ErfinderProvider(
+            "Leider sind keine Termine frei.", ToolCall("t1", "freie_termine_suchen", argumente)
+        ),
+        "system",
+        [],
+        "Gibt es in Fürth noch etwas frei?",
+        kasten(StubTerminsystem(0)),
+    )
+
+    assert ergebnis.antwort == "Leider sind keine Termine frei."
+    assert ergebnis.termin_vorschlag is None

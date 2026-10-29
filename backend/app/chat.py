@@ -32,6 +32,10 @@ FEHLER_ANTWORT = (
     "Entschuldigung, der Assistent ist gerade nicht erreichbar. Bitte versuchen Sie es "
     "später noch einmal oder rufen Sie direkt bei Ihrem Standort an."
 )
+TERMINSYSTEM_FEHLER_ANTWORT = (
+    "Entschuldigung, das Terminsystem ist gerade nicht erreichbar. Bitte versuchen Sie es "
+    "später noch einmal oder rufen Sie direkt bei Ihrem Standort an."
+)
 LEERE_ANTWORT = (
     "Dazu kann ich Ihnen leider keine Auskunft geben. Bitte rufen Sie direkt bei Ihrem Standort an."
 )
@@ -41,7 +45,7 @@ LIMIT_MELDUNG = "Werkzeuglimit erreicht. Antworte jetzt mit den vorhandenen Erge
 _QUELLEN_ZEILE = re.compile(r"^[ \t>*_-]*quellen?[*_]*[ \t]*:(?P<inhalt>[^\n]*)$", re.I | re.M)
 _EINTRAG_RAND = " \t*_`'\"()[]<>."
 # Uhrzeit in einer Modellantwort, z. B. „09:00", „9.30" oder „9 Uhr" (Spec 009).
-_UHRZEIT = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2} Uhr\b")
+_UHRZEIT = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2} uhr\b", re.I)
 
 Kategorie = Literal["normal", "notfall", "fehler"]
 
@@ -108,6 +112,13 @@ def _aufzaehlung(standorte: list[Standort]) -> str:
 def _terminwunsch_beantworten(wunsch: Terminwunsch, werkzeuge: Werkzeugkasten) -> ChatErgebnis:
     """Antwort ohne LLM; Termine kommen ausschließlich aus dem Terminsystem."""
     quellen = [Quelle(STANDORTE_DATEI, STANDORTE_TITEL)]
+    if not wunsch.am_ort and wunsch.standort is not None:
+        text = texte.TERMINWUNSCH_NICHT_AM_STANDORT.format(
+            standort=wunsch.standort.name,
+            fachrichtung=wunsch.fachrichtung,
+            standorte=_aufzaehlung(wunsch.im_verbund),
+        )
+        return ChatErgebnis(text, "normal", quellen, 0)
     if not wunsch.am_ort:
         text = texte.TERMINWUNSCH_NICHT_AM_ORT.format(
             ort=wunsch.ort,
@@ -120,6 +131,7 @@ def _terminwunsch_beantworten(wunsch: Terminwunsch, werkzeuge: Werkzeugkasten) -
             fachrichtung=wunsch.fachrichtung,
             ort=wunsch.ort,
             standorte=_aufzaehlung(wunsch.am_ort),
+            beispiel=wunsch.am_ort[0].name,
         )
         return ChatErgebnis(text, "normal", quellen, 0)
     (standort,) = wunsch.am_ort
@@ -142,7 +154,7 @@ def run_chat(
     nachricht: str,
     werkzeuge: Werkzeugkasten,
 ) -> ChatErgebnis:
-    """Wirft `LlmError`, wenn der Anbieter scheitert."""
+    """Wirft `LlmError` oder `TerminsystemNichtErreichbar`, wenn ein Dienst ausfällt."""
     # Regelbasiert und vor jedem LLM-Aufruf (Spec 006).
     if (notfall := erkenne_notfall(nachricht)) is not None:
         logger.info("Chat: Notfall erkannt (%s), LLM nicht aufgerufen", notfall)
@@ -178,19 +190,19 @@ def run_chat(
                 # Jeder Aufruf braucht ein Ergebnis, sonst lehnt der Anbieter den Verlauf ab.
                 nachrichten.append(_limit_ergebnis(call))
 
+    # Ohne freie Termine gibt es nichts auszuwählen, also auch keine `aktion`.
+    vorschlag = werkzeuge.termin_vorschlag or None
     if texte.KANARIE.casefold() in antwort.text.casefold():
         # Kein Inhalt im Log: Die Antwort kann den Systemprompt enthalten.
         logger.warning("Leitplanke: Antwort mit interner Kennung ersetzt")
-        return ChatErgebnis(
-            texte.STANDARDANTWORT, "normal", [], aufrufe, werkzeuge.termin_vorschlag
-        )
+        return ChatErgebnis(texte.STANDARDANTWORT, "normal", [], aufrufe, vorschlag)
 
-    if nennt_termin(nachricht) and not werkzeuge.termin_vorschlag and _UHRZEIT.search(antwort.text):
+    if nennt_termin(nachricht) and vorschlag is None and _UHRZEIT.search(antwort.text):
         # Uhrzeiten ohne Termine aus dem Terminsystem sind vermutlich erfunden.
         logger.warning("Leitplanke: Antwort mit Uhrzeit ohne Terminsystem ersetzt")
         return ChatErgebnis(texte.TERMIN_NUR_AUS_TERMINSYSTEM, "normal", [], aufrufe)
 
     text, quellen = extract_quellen(antwort.text, werkzeuge.gelieferte_dokumente)
     if not text:
-        return ChatErgebnis(LEERE_ANTWORT, "normal", [], aufrufe, werkzeuge.termin_vorschlag)
-    return ChatErgebnis(text, "normal", quellen, aufrufe, werkzeuge.termin_vorschlag)
+        return ChatErgebnis(LEERE_ANTWORT, "normal", [], aufrufe, vorschlag)
+    return ChatErgebnis(text, "normal", quellen, aufrufe, vorschlag)

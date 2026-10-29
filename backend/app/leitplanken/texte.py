@@ -35,11 +35,15 @@ TERMINWUNSCH_KEINE_TERMINE = (
     "Bitte rufen Sie den Standort an: {telefon}."
 )
 TERMINWUNSCH_MEHRERE = (
-    "{fachrichtung} bieten in {ort} mehrere Standorte an: {standorte}. "
-    "Bitte nennen Sie den Standort, an dem Sie einen Termin möchten."
+    "In {ort} bieten mehrere Standorte {fachrichtung} an: {standorte}. "
+    'Bitte nennen Sie den Standort, zum Beispiel: „Termin {fachrichtung} im {beispiel}".'
 )
 TERMINWUNSCH_NICHT_AM_ORT = (
     "In {ort} bietet kein Standort des Verbunds {fachrichtung} an. "
+    "{fachrichtung} gibt es im Verbund hier: {standorte}."
+)
+TERMINWUNSCH_NICHT_AM_STANDORT = (
+    "Im {standort} gibt es keine {fachrichtung}. "
     "{fachrichtung} gibt es im Verbund hier: {standorte}."
 )
 
