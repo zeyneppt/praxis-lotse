@@ -22,6 +22,50 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 010 – Unvollständiger Terminwunsch: Rückfrage statt LLM (2026-10-29)
+
+- Anlass: Generalprobe mit `qwen2.5:7b` nach Spec 009 – auf „Welche freien Termine gibt es
+  bei Ihnen?" bot das Modell ohne Werkzeug Fachrichtungen an, die es am zuvor genannten
+  Standort (MVZ Nürnberg Süd) nicht gibt.
+- Ergebnis: Terminwünsche ohne Fachrichtung oder Ort beantwortet der Server ohne LLM, nur mit
+  Angaben aus `standorte.json`. Reihenfolge: Notfall → 009 → 010 → Kurznachricht → LLM.
+  Dazu die Ergänzungen des Menschen: (a) Kurznachrichten (≤ 2 Wörter) bekommen eine feste
+  Antwort, „danke" eine freundliche Kurzantwort; (b) Fettdruck, Links und Überschriften-`#`
+  werden aus LLM-Antworten entfernt.
+- Durchläufe bis alle Tests grün: 4 pytest-, 4 lint-Läufe; Abnahmetests beim 1. Lauf grün.
+  Am Ende: lint ok, pytest 471, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75
+  ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0. Alles mit `LLM_PROVIDER=fake`,
+  ohne Ollama (Vorgabe des Menschen); `make acceptance-llm` deshalb nicht gelaufen.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Zwei eigene Testerwartungen waren falsch (pytest): „Lauf" ist der Kurzname von „MVZ Lauf"
+    und zählt wie in 009 als Standort, nicht als Ort; „Terminbuchung" beginnt nicht mit
+    `buch`, ist also nach Anforderung 2 kein Wunschwort. Tests korrigiert, nicht der Code.
+  - Die Kurznachrichten-Regel hat 12 bestehende pytest-Tests getroffen, die den LLM-Ablauf
+    mit Eingaben wie „Hallo", „Frage" oder „Akupunktur?" prüfen. Eingaben in ganze Sätze
+    geändert, Prüfungen unverändert. Ebenso `test_erfundene_uhrzeit_wird_ersetzt` (009):
+    „Ich hätte gern einen Termin beim Hausarzt" ist jetzt ein allgemeiner Terminwunsch, die
+    Eingabe heißt dort jetzt „Ich hätte gern Termine beim Hausarzt".
+  - mypy: fehlende Typargumente in den neuen Tests, ruff: Zeilenlänge/Importreihenfolge.
+- Getroffene Annahmen:
+  - Nur ein Standort genannt (ohne Fachrichtung): Das Beispiel lautet „Termin <Fachrichtung>
+    im <Standortname>" statt „… in <Ort>", weil „in Nürnberg" wieder mehrdeutig wäre.
+  - Beispiel-Fachrichtung bzw. -Standort ist jeweils der erste der Liste (alphabetisch
+    bzw. in Verzeichnisreihenfolge).
+  - Eine Fachrichtung mit unbekanntem Ort („Termin Kardiologie in München") gilt als „nur
+    Fachrichtung"; der Text nennt den Standort, an dem es sie gibt.
+  - Kurznachricht = höchstens 2 Wörter, wie in der Klammer der Ergänzung definiert, ohne
+    weitere Inhaltsprüfung. „danke" = ein Wort, das mit `dank` beginnt („Vielen Dank").
+  - Markdown-Entfernung nur im LLM-Ablauf, nach dem Abtrennen der Quellenzeile; Listen und
+    `*`-Aufzählungen bleiben.
+- Offene Punkte:
+  - „Hallo" bekommt jetzt die Kurznachricht-Antwort („Ich kann frühere Nachrichten nicht
+    fortsetzen …"); für eine Begrüßung klingt das schief. Auch kurze echte Fragen wie
+    „Öffnungszeiten Fürth?" gehen nicht mehr an das LLM. Ggf. eigene Antwort für Grüße bzw.
+    Ausnahme bei Fachrichtung/Ort.
+  - Ausschluss- und Wunschwörter gelten nur am Wortanfang: „Terminbuchung" oder
+    „Terminabsage" werden nicht als Wunsch- bzw. Ausschlusswort erkannt.
+  - `make acceptance-llm` und `make eval MODUS=voll` nicht gelaufen (kein Ollama).
+
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 
 - Anlass: Generalprobe mit `qwen2.5:7b` – bei „Termin in der Gastroenterologie in Fürth"

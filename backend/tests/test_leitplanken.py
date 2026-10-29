@@ -130,7 +130,8 @@ def test_antwort_mit_kanarie_wird_ersetzt(caplog: pytest.LogCaptureFixture) -> N
 
     werkzeuge = Werkzeugkasten(None, None, None, None)  # type: ignore[arg-type]
     with caplog.at_level(logging.WARNING):
-        ergebnis = run_chat(KanarienProvider(), "system", [], "Hallo", werkzeuge)
+        nachricht = "Hallo, ich habe eine Frage"
+        ergebnis = run_chat(KanarienProvider(), "system", [], nachricht, werkzeuge)
 
     assert ergebnis.antwort == STANDARDANTWORT
     assert ergebnis.quellen == []
@@ -297,7 +298,7 @@ def test_llm_fehler_im_log_wird_redigiert(
 
     app.dependency_overrides[get_provider] = Fehler
     with caplog.at_level(logging.WARNING):
-        client.post("/api/chat", json={"nachricht": "Hallo"})
+        client.post("/api/chat", json={"nachricht": "Hallo, ich habe eine Frage"})
 
     assert "[EMAIL]" in caplog.text
     assert "[TELEFON]" in caplog.text

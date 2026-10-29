@@ -8,8 +8,15 @@ from pathlib import Path
 from typing import Literal
 
 from app.leitplanken import texte
+from app.leitplanken.kurznachricht import erkenne_kurznachricht
 from app.leitplanken.notfall import erkenne_notfall
-from app.leitplanken.terminwunsch import Terminwunsch, erkenne_terminwunsch, nennt_termin
+from app.leitplanken.terminwunsch import (
+    AllgemeinerTerminwunsch,
+    Terminwunsch,
+    erkenne_allgemeinen_terminwunsch,
+    erkenne_terminwunsch,
+    nennt_termin,
+)
 from app.llm.base import (
     AssistantMessage,
     LlmProvider,
@@ -46,6 +53,10 @@ _QUELLEN_ZEILE = re.compile(r"^[ \t>*_-]*quellen?[*_]*[ \t]*:(?P<inhalt>[^\n]*)$
 _EINTRAG_RAND = " \t*_`'\"()[]<>."
 # Uhrzeit in einer Modellantwort, z. B. „09:00", „9.30" oder „9 Uhr" (Spec 009).
 _UHRZEIT = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2} uhr\b", re.I)
+# Markdown, das die Oberfläche nicht darstellt (Spec 010, Ergänzung). Listen mit „- " bleiben.
+_FETT = re.compile(r"\*\*([^\n]+?)\*\*|__([^\n]+?)__")
+_LINK = re.compile(r"\[([^\]\n]+)\]\([^)\s]*\)")
+_UEBERSCHRIFT = re.compile(r"^[ \t]*#{1,6}[ \t]+", re.M)
 
 Kategorie = Literal["normal", "notfall", "fehler"]
 
@@ -104,9 +115,19 @@ def extract_quellen(antwort: str, gelieferte: dict[str, str]) -> tuple[str, list
     return text, quellen
 
 
-def _aufzaehlung(standorte: list[Standort]) -> str:
-    namen = [s.name for s in standorte]
+def strip_markdown(text: str) -> str:
+    """Entfernt Fettdruck, Links (der Text bleibt) und Überschriften-`#`."""
+    text = _FETT.sub(lambda m: m.group(1) or m.group(2), text)
+    text = _LINK.sub(r"\1", text)
+    return _UEBERSCHRIFT.sub("", text)
+
+
+def _liste(namen: list[str]) -> str:
     return namen[0] if len(namen) == 1 else f"{', '.join(namen[:-1])} und {namen[-1]}"
+
+
+def _aufzaehlung(standorte: list[Standort]) -> str:
+    return _liste([s.name for s in standorte])
 
 
 def _terminwunsch_beantworten(wunsch: Terminwunsch, werkzeuge: Werkzeugkasten) -> ChatErgebnis:
@@ -147,6 +168,44 @@ def _terminwunsch_beantworten(wunsch: Terminwunsch, werkzeuge: Werkzeugkasten) -
     return ChatErgebnis(text, "normal", quellen, 0, termin_vorschlag=slots)
 
 
+def _allgemeinen_terminwunsch_beantworten(
+    wunsch: AllgemeinerTerminwunsch, werkzeuge: Werkzeugkasten
+) -> ChatErgebnis:
+    """Rückfrage ohne LLM; nennt nur, was das Standortverzeichnis hergibt (Spec 010)."""
+    quellen = [Quelle(STANDORTE_DATEI, STANDORTE_TITEL)]
+    katalog = werkzeuge.katalog
+    if wunsch.fachrichtung is not None:
+        fachrichtung = wunsch.fachrichtung
+        im_verbund = [s for s in katalog.search() if fachrichtung in s.fachrichtungen]
+        if len(im_verbund) == 1:
+            # Nur ein Anbieter im Verbund: Termine wie bei einem vollständigen Wunsch.
+            (standort,) = im_verbund
+            return _terminwunsch_beantworten(
+                Terminwunsch(fachrichtung, standort.ort, None, im_verbund, im_verbund), werkzeuge
+            )
+        text = texte.TERMINWUNSCH_STANDORTE_FUER_FACHRICHTUNG.format(
+            fachrichtung=fachrichtung,
+            standorte=_aufzaehlung(im_verbund),
+            beispiel=im_verbund[0].name,
+        )
+    elif wunsch.standort is not None:
+        fachrichtungen = sorted(wunsch.standort.fachrichtungen)
+        text = texte.TERMINWUNSCH_FACHRICHTUNGEN_AM_STANDORT.format(
+            standort=wunsch.standort.name,
+            fachrichtungen=_liste(fachrichtungen),
+            beispiel=fachrichtungen[0],
+        )
+    elif wunsch.ort is not None:
+        am_ort = [s for s in katalog.search() if s.ort == wunsch.ort]
+        fachrichtungen = sorted({f for s in am_ort for f in s.fachrichtungen})
+        text = texte.TERMINWUNSCH_FACHRICHTUNGEN_AM_ORT.format(
+            ort=wunsch.ort, fachrichtungen=_liste(fachrichtungen), beispiel=fachrichtungen[0]
+        )
+    else:
+        text = texte.TERMINWUNSCH_RUECKFRAGE.format(fachrichtungen=_liste(katalog.fachrichtungen()))
+    return ChatErgebnis(text, "normal", quellen, 0)
+
+
 def run_chat(
     provider: LlmProvider,
     system_prompt: str,
@@ -166,6 +225,15 @@ def run_chat(
     if (wunsch := erkenne_terminwunsch(nachricht, werkzeuge.katalog)) is not None:
         logger.info("Chat: Terminwunsch erkannt, LLM nicht aufgerufen")
         return _terminwunsch_beantworten(wunsch, werkzeuge)
+    # Fehlen Fachrichtung oder Ort, fragt der Server selbst nach (Spec 010).
+    if (allgemein := erkenne_allgemeinen_terminwunsch(nachricht, werkzeuge.katalog)) is not None:
+        logger.info("Chat: allgemeiner Terminwunsch erkannt, LLM nicht aufgerufen")
+        return _allgemeinen_terminwunsch_beantworten(allgemein, werkzeuge)
+    # „ja", „ok" usw. kann der Assistent ohne Verlauf nicht fortsetzen (Spec 010, Ergänzung).
+    if (kurz := erkenne_kurznachricht(nachricht)) is not None:
+        logger.info("Chat: Kurznachricht erkannt, LLM nicht aufgerufen")
+        text = texte.KURZNACHRICHT_DANKE if kurz == "danke" else texte.KURZNACHRICHT
+        return ChatErgebnis(text, "normal", [], 0)
     nachrichten: list[Message] = [*verlauf, UserMessage(nachricht)]
     aufrufe = 0
     while True:
@@ -203,6 +271,7 @@ def run_chat(
         return ChatErgebnis(texte.TERMIN_NUR_AUS_TERMINSYSTEM, "normal", [], aufrufe)
 
     text, quellen = extract_quellen(antwort.text, werkzeuge.gelieferte_dokumente)
+    text = strip_markdown(text).strip()
     if not text:
         return ChatErgebnis(LEERE_ANTWORT, "normal", [], aufrufe, vorschlag)
     return ChatErgebnis(text, "normal", quellen, aufrufe, vorschlag)

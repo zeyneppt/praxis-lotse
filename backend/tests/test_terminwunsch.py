@@ -394,7 +394,7 @@ def test_erfundene_uhrzeit_wird_ersetzt(erfunden: str, caplog: pytest.LogCapture
         ErfinderProvider(f"{erfunden}\nQuellen: standorte.json"),
         "system",
         [],
-        "Ich hätte gern einen Termin beim Hausarzt",
+        "Ich hätte gern Termine beim Hausarzt",
         kasten(StubTerminsystem()),
     )
 
