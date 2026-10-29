@@ -9,6 +9,7 @@ from app.termine.base import (
     StandortUnbekannt,
     TerminNichtVerfuegbar,
     Terminsystem,
+    TerminsystemNichtErreichbar,
 )
 from app.termine.simuliert import SimuliertesTerminsystem
 
@@ -21,5 +22,6 @@ __all__ = [
     "Slot",
     "StandortUnbekannt",
     "TerminNichtVerfuegbar",
+    "TerminsystemNichtErreichbar",
     "Terminsystem",
 ]

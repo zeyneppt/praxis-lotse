@@ -178,11 +178,20 @@ class Werkzeugkasten:
             "standorte": [standort.model_dump() for standort in standorte],
         }
 
-    def _freie_termine_suchen(self, args: FreieTermineSuchenArgs) -> dict[str, Any]:
-        slots = self._terminsystem.freie_termine(
-            args.standort_id, args.fachrichtung, args.ab_datum, MAX_TERMINE
-        )
+    @property
+    def katalog(self) -> StandortKatalog:
+        return self._katalog
+
+    def termine_vorschlagen(
+        self, standort_id: str, fachrichtung: str, ab_datum: date | None = None
+    ) -> list[Slot]:
+        """Höchstens `MAX_TERMINE` freie Termine; merkt sie als Vorschlag."""
+        slots = self._terminsystem.freie_termine(standort_id, fachrichtung, ab_datum, MAX_TERMINE)
         self.termin_vorschlag = slots
+        return slots
+
+    def _freie_termine_suchen(self, args: FreieTermineSuchenArgs) -> dict[str, Any]:
+        slots = self.termine_vorschlagen(args.standort_id, args.fachrichtung, args.ab_datum)
         return {"termine": [slot.model_dump() for slot in slots]}
 
     def _wissen_suchen(self, args: WissenSuchenArgs) -> dict[str, Any]:

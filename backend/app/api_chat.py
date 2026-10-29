@@ -10,13 +10,19 @@ from pydantic import BaseModel, StringConstraints
 from app.api_standorte import Katalog
 from app.api_termine import TerminsystemDep
 from app.api_wissen import DbSession, get_embedder
-from app.chat import FEHLER_ANTWORT, KI_HINWEIS, Kategorie, run_chat
+from app.chat import (
+    FEHLER_ANTWORT,
+    KI_HINWEIS,
+    TERMINSYSTEM_FEHLER_ANTWORT,
+    Kategorie,
+    run_chat,
+)
 from app.embeddings import Embedder
 from app.llm.base import LlmError, LlmProvider
 from app.logging import redact
 from app.ratenbegrenzung import Ratenbegrenzer, pruefe_rate
 from app.sitzungen import SitzungsSpeicher
-from app.termine import Slot
+from app.termine import Slot, TerminsystemNichtErreichbar
 from app.werkzeuge import Werkzeugkasten
 
 logger = logging.getLogger(__name__)
@@ -101,6 +107,15 @@ def chat(
         return ChatAntwort(
             sitzung_id=sitzung_id, antwort=FEHLER_ANTWORT, kategorie="fehler", quellen=[]
         )
+    except TerminsystemNichtErreichbar as fehler:
+        # Nur der Fehlertyp, kein Nachrichtentext.
+        logger.warning("Chat: Terminsystem nicht erreichbar (%s)", redact(str(fehler)))
+        return ChatAntwort(
+            sitzung_id=sitzung_id,
+            antwort=TERMINSYSTEM_FEHLER_ANTWORT,
+            kategorie="fehler",
+            quellen=[],
+        )
     sitzungen.speichern(sitzung_id, anfrage.nachricht, ergebnis.antwort)
     logger.info(
         "Chat: Nachricht mit %d Zeichen, %d Werkzeugaufrufe, %d Quellen",
@@ -115,8 +130,8 @@ def chat(
         quellen=[QuelleAntwort(dokument=q.dokument, titel=q.titel) for q in ergebnis.quellen],
         # Genau die Termine, die das Werkzeug geliefert hat – nie vom Modell formuliert.
         aktion=(
-            TerminVorschlag(slots=werkzeuge.termin_vorschlag)
-            if werkzeuge.termin_vorschlag is not None
+            TerminVorschlag(slots=ergebnis.termin_vorschlag)
+            if ergebnis.termin_vorschlag is not None
             else None
         ),
     )

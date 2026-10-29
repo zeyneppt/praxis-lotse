@@ -1,6 +1,6 @@
 # Spec 009 – Terminwunsch regelbasiert erkennen
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 005, 006, 008
 **Abnahmetests:** `tests/acceptance/009_terminwunsch.robot` und
 `tests/acceptance/009_terminwunsch_ui.robot` (Tag `spec-009`)
@@ -69,6 +69,13 @@ kommen ausschließlich aus dem Terminsystem.
    (60 pro Minute) wird **nicht** geändert. Treten in `make acceptance` 429-Fehler
    auf, Ursache im Factory-Log und im PR beschreiben und aufhören.
 
+**Ergänzung (Mensch):** Nennt die Nachricht einen Standortnamen (voll wie „MVZ Nürnberg Süd"
+oder ohne „MVZ " wie „Nürnberg Süd", als Wortfolge), hat dieser Standort Vorrang vor dem
+Ort. Hat er die Fachrichtung, werden seine Termine vorgeschlagen, sonst gilt der Fall
+„Fachrichtung gibt es dort nicht". Die Auswahlantwort bei mehreren Standorten lautet
+„In Nürnberg bieten mehrere Standorte Innere Medizin an: …" und nennt ein Beispiel,
+z. B. „Termin Innere Medizin im MVZ Nürnberg Süd".
+
 ## API-Vertrag
 
 Keine neuen Endpunkte. `POST /api/chat` liefert für einen erkannten
@@ -94,3 +101,28 @@ Terminwunsch mit genau einem Standort:
 
 ## Umsetzungsnotizen
 
+Plan:
+1. `leitplanken/terminwunsch.py`: `nennt_termin()` und `erkenne_terminwunsch(nachricht, katalog)`
+   – Wörter aus `normalize()`, Fachrichtung per Präfix (auch ohne `-ie`), Ort am ersten Wort.
+   Ergebnis: Fachrichtung, Ort, passende Standorte am Ort, alle Anbieter im Verbund.
+2. Antworttexte für die vier Fälle und die Uhrzeit-Leitplanke in `leitplanken/texte.py`.
+3. `run_chat`: Notfall → Terminwunsch (Terminsystem über den `Werkzeugkasten`, max. 5) → LLM.
+4. `ChatErgebnis` bekommt `termin_vorschlag`; `api_chat` liest die `aktion` von dort.
+5. Leitplanke gegen erfundene Uhrzeiten nach dem LLM-Ablauf.
+6. pytest: Erkennung (positiv/negativ), alle Antwortfälle, Leitplanke mit Stub-Provider.
+7. Container neu bauen, `make lint`, `make test`, `make acceptance SPEC=009`, `make acceptance`, `make eval`.
+8. Factory-Log, PR, CI abwarten.
+
+
+Entscheidungen (Details und offene Punkte im Factory-Log):
+- Zwei genannte Orte gelten wie zwei Fachrichtungen als nicht eindeutig → LLM-Ablauf.
+- Leitplanke greift, wenn das Terminsystem keinen Termin geliefert hat (Fehler oder leer).
+- Ergebnis: pytest 366 grün, `make acceptance SPEC=009` 9/9, `make acceptance` 70/70.
+
+Nach Review (Vorgaben des Menschen in PR #12):
+- Standortname hat Vorrang vor dem Ort (Ergänzung oben). Ist der Kurzname nur ein Ort
+  („MVZ Stein" → „Stein"), zählt er als Ort; die längere Nennung gewinnt
+  („MVZ Erlangen Süd" vor „MVZ Erlangen"); zwei genannte Standorte → LLM-Ablauf.
+- „termin" auch in zusammengesetzten Wörtern; Uhrzeit-Muster ohne Groß-/Kleinschreibung.
+- Terminsystem-Ausfall (`TerminsystemNichtErreichbar`) → freundliche Antwort, `kategorie: "fehler"`.
+- Leere Terminliste im LLM-Ablauf → keine `aktion`.

@@ -24,3 +24,31 @@ STANDARDANTWORT = (
     "Dabei kann ich Ihnen leider nicht helfen. Ich beantworte gern organisatorische Fragen "
     "zu Standorten, Terminen und Untersuchungen."
 )
+
+# Terminwunsch ohne LLM (Spec 009). Keine Uhrzeiten im Text: Die Termine zeigt die Oberfläche.
+TERMINWUNSCH_TERMINE = (
+    "Hier sind freie Termine für {fachrichtung} im {standort}. "
+    "Wählen Sie einen Termin aus, um eine Terminanfrage zu stellen."
+)
+TERMINWUNSCH_KEINE_TERMINE = (
+    "Im {standort} gibt es für {fachrichtung} derzeit keine freien Termine. "
+    "Bitte rufen Sie den Standort an: {telefon}."
+)
+TERMINWUNSCH_MEHRERE = (
+    "In {ort} bieten mehrere Standorte {fachrichtung} an: {standorte}. "
+    'Bitte nennen Sie den Standort, zum Beispiel: „Termin {fachrichtung} im {beispiel}".'
+)
+TERMINWUNSCH_NICHT_AM_ORT = (
+    "In {ort} bietet kein Standort des Verbunds {fachrichtung} an. "
+    "{fachrichtung} gibt es im Verbund hier: {standorte}."
+)
+TERMINWUNSCH_NICHT_AM_STANDORT = (
+    "Im {standort} gibt es keine {fachrichtung}. "
+    "{fachrichtung} gibt es im Verbund hier: {standorte}."
+)
+
+# Ersetzt eine Modellantwort mit Uhrzeit, wenn das Terminsystem keine Termine geliefert hat.
+TERMIN_NUR_AUS_TERMINSYSTEM = (
+    "Freie Termine kann ich Ihnen nur direkt aus dem Terminsystem zeigen. Bitte nennen Sie "
+    'Fachrichtung und Ort, zum Beispiel: „Termin in der Gastroenterologie in Fürth".'
+)

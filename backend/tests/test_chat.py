@@ -18,6 +18,7 @@ from app.chat import (
     KI_HINWEIS,
     LEERE_ANTWORT,
     MAX_WERKZEUGAUFRUFE,
+    TERMINSYSTEM_FEHLER_ANTWORT,
     Quelle,
     extract_quellen,
     load_system_prompt,
@@ -44,6 +45,7 @@ from app.termine import (
     Slot,
     StandortUnbekannt,
     Terminsystem,
+    TerminsystemNichtErreichbar,
 )
 from app.werkzeuge import MAX_TERMINE, WISSEN_K, Werkzeugkasten
 from app.wissen import Treffer
@@ -704,3 +706,42 @@ def test_api_chat_liefert_termin_vorschlag(client: TestClient) -> None:
     assert daten["aktion"]["typ"] == "termin_vorschlag"
     assert daten["aktion"]["slots"] == [slot(m).model_dump() for m in range(5)]
     assert daten["antwort"] == "Hier sind freie Termine."
+
+
+class AusgefallenesTerminsystem(StubTerminsystem):
+    def freie_termine(
+        self, standort_id: str, fachrichtung: str, ab_datum: date | None, limit: int
+    ) -> list[Slot]:
+        raise TerminsystemNichtErreichbar("OperationalError")
+
+
+@pytest.mark.parametrize(
+    "nachricht",
+    [
+        # Regelbasierter Terminwunsch (Spec 009)
+        "Termin Gastroenterologie Erlangen, Erika Mustermann",
+        # LLM-Ablauf mit freie_termine_suchen
+        "Termin in Erlangen? Erika Mustermann",
+    ],
+)
+def test_api_chat_terminsystem_ausfall_liefert_kategorie_fehler(
+    client: TestClient,
+    sitzungen: SitzungsSpeicher,
+    caplog: pytest.LogCaptureFixture,
+    nachricht: str,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app.dependency_overrides[get_provider] = TerminProvider
+    app.dependency_overrides[get_terminsystem] = AusgefallenesTerminsystem
+
+    antwort = client.post("/api/chat", json={"nachricht": nachricht})
+
+    assert antwort.status_code == 200
+    daten = antwort.json()
+    assert daten["kategorie"] == "fehler"
+    assert daten["antwort"] == TERMINSYSTEM_FEHLER_ANTWORT
+    assert daten["quellen"] == []
+    assert daten["aktion"] is None
+    assert sitzungen.verlauf(daten["sitzung_id"]) == []
+    assert "Terminsystem nicht erreichbar" in caplog.text
+    assert "Mustermann" not in caplog.text

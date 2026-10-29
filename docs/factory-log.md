@@ -22,6 +22,83 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
+
+- Anlass: Generalprobe mit `qwen2.5:7b` – bei „Termin in der Gastroenterologie in Fürth"
+  kein Aufruf von `freie_termine_suchen`, einmal Wissenstext, einmal erfundene Termine.
+- Ergebnis: Eindeutige Terminwünsche (Termin + genau eine Fachrichtung + genau ein Ort)
+  beantwortet jetzt der Server ohne LLM; Termine kommen nur aus dem Terminsystem.
+  Im LLM-Ablauf ersetzt eine Leitplanke Antworten mit Uhrzeit, wenn das Terminsystem
+  keine Termine geliefert hat.
+- Durchläufe bis alle Tests grün: 1 (lint, pytest 366, `make acceptance SPEC=009` 9/9,
+  `make acceptance` 70/70 ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0).
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Eine angefangene, unbenutzte Hilfsfunktion im neuen Modul noch vor dem ersten Lauf
+    beim Durchlesen entfernt. Sonst keine.
+- Getroffene Annahmen:
+  - „einen Ort": Nennt die Nachricht **zwei** Orte (z. B. „Stein oder Feucht"), ist der
+    Wunsch nicht eindeutig → bisheriger LLM-Ablauf. Analog zu „genau einer Fachrichtung".
+  - Mehrwort-Fachrichtungen: Jedes Wort der Folge darf gebeugt sein (Präfixvergleich),
+    damit „in der Inneren Medizin" erkannt wird – dieselbe Regel wie bei Einwortnamen.
+  - „`freie_termine_suchen` nicht erfolgreich aufgerufen" = das Terminsystem hat keinen
+    Termin geliefert (Fehler **oder** leere Liste). Uhrzeiten nach einer leeren Liste
+    wären ebenso erfunden.
+  - Antworttexte der vier Fälle stehen wie die Leitplanken-Texte in `leitplanken/texte.py`.
+    Formulierung „freie Termine für <Fachrichtung> im <Standort>" statt „in der …",
+    weil „in der Innere Medizin" grammatisch nicht passt.
+  - Keine freien Termine: Antwort nennt die Telefonnummer des Standorts.
+  - Die `aktion` kommt jetzt aus `ChatErgebnis.termin_vorschlag` statt direkt aus dem
+    `Werkzeugkasten`; Verhalten im LLM-Ablauf unverändert.
+- Nicht ausgeführt:
+  - `make acceptance-llm` und `make eval MODUS=voll` – Vorgabe des Menschen für diesen
+    Lauf: `LLM_PROVIDER=fake`, kein Ollama.
+- Akzeptierte Grenzen (vom Menschen nach dem Review so entschieden):
+  - Orte, die auch Alltagswörter sind („Stein", „Lauf", „Feucht"), können in seltenen
+    Sätzen falsch als Ort gelten („Termin wegen Nierenstein" trifft nicht, „ein Stein" schon).
+    Folge: falscher Standortvorschlag, aber keine erfundenen Termine.
+  - Die Uhrzeit-Leitplanke ersetzt auch korrekte Öffnungszeiten („ab 08:00"), wenn die
+    Frage „Termin" enthält und kein Termin geliefert wurde.
+  - Ein Datum wie „02.11." zählt als Uhrzeit (Muster aus der Spec) – bewusst so belassen.
+- Eingriffe durch den Menschen:
+  - Lauf ohne Ollama; CI nach dem Push abwarten, nicht mergen.
+  - Nach dem Review vier Punkte im selben PR (siehe Nachtrag).
+- Review-Ergebnis: freigegeben nach 1 Runde, keine blockierenden Punkte.
+
+### Nachtrag nach Review – Spec 009 (2026-10-29)
+
+- Vorgaben des Menschen:
+  1. **Ergänzung (Mensch) in der Spec:** Ein genannter Standortname (voll oder ohne „MVZ ")
+     hat Vorrang vor dem Ort. Die Auswahlantwort nennt ein Beispiel. Damit ist der offene
+     Punkt „Auswahl bei mehreren Standorten führt wieder zur Auswahl" erledigt.
+  2. „termin" auch in zusammengesetzten Wörtern („Untersuchungstermin", „Wunschtermin"),
+     für Erkennung und Uhrzeit-Leitplanke; Uhrzeit-Muster ohne Groß-/Kleinschreibung.
+  3. Terminsystem-Ausfall → freundliche Antwort mit `kategorie: "fehler"` statt 500.
+  4. Leere Terminliste im LLM-Ablauf → keine `aktion`.
+- Durchläufe bis alle Tests grün: 1 (pytest 394, `make acceptance` 70/70 ohne 429,
+  `make eval` Retrieval 0.952 / Notfall 1.0). Vorher zwei kleine Fehler:
+  - Ein Ersetzungsskript fand eine Zeile nicht, weil `ruff format` die Bedingung auf eine
+    Zeile gezogen hatte; nur die übrigen Dateien waren geschrieben – erkannt an der
+    Fehlermeldung, Rest gezielt nachgezogen.
+  - `ruff` bemängelte die Importreihenfolge des neuen `TerminsystemNichtErreichbar`.
+- Getroffene Annahmen:
+  - Der Kurzname ohne „MVZ " zählt nur, wenn er nicht selbst ein Ort ist: „Erlangen" ist
+    der Ort Erlangen (mit beiden Standorten), „MVZ Erlangen" der Standort std-009.
+    Sonst würde „Termin Gynäkologie in Erlangen" am MVZ Erlangen scheitern, obwohl das
+    MVZ Erlangen Süd sie anbietet.
+  - Steckt eine Nennung in einer längeren („MVZ Erlangen" in „MVZ Erlangen Süd"), zählt
+    nur die längere. Zwei verschiedene Standorte genannt → nicht eindeutig → LLM-Ablauf.
+  - Mit Standortnamen ist der Ort durch den Standort festgelegt; ein zusätzlich genannter
+    anderer Ort wird ignoriert („MVZ Stein, nicht in Feucht" → std-006).
+  - Eigener Text für „Standort hat die Fachrichtung nicht": „Im <Standort> gibt es keine
+    <Fachrichtung>. … gibt es im Verbund hier: …".
+  - Das Beispiel in der Auswahlantwort nennt den ersten passenden Standort.
+  - Ausfall: Das simulierte Terminsystem übersetzt `SQLAlchemyError` beim Lesen freier
+    Termine in `TerminsystemNichtErreichbar`. `/api/chat` fängt das für beide Wege
+    (Regel und Werkzeug) ab und loggt nur den Fehlertyp. Die Sitzung speichert in dem
+    Fall nichts, wie beim LLM-Ausfall. Andere Endpunkte (`/api/termine/...`) unverändert.
+  - „termin" als Teilwort trifft theoretisch auch „determiniert" o. Ä.; im Praxis-Chat
+    vernachlässigbar.
+
 ## Spec 008 – Chat-Oberfläche (2026-10-27)
 
 - Durchläufe bis alle Tests grün: 1 (`make lint` 1, `make acceptance SPEC=008` 6/6 im ersten Lauf);

@@ -74,6 +74,10 @@ class FachrichtungUngueltig(Exception):
     """Die Fachrichtung trifft keine oder mehrere Fachrichtungen des Standorts."""
 
 
+class TerminsystemNichtErreichbar(Exception):
+    """Das Terminsystem antwortet nicht (z. B. Datenbank oder Schnittstelle ausgefallen)."""
+
+
 class TerminNichtVerfuegbar(Exception):
     """Slot belegt, schon angefragt, vergangen oder nicht existent."""
 
