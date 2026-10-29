@@ -115,8 +115,8 @@ def chat(
         quellen=[QuelleAntwort(dokument=q.dokument, titel=q.titel) for q in ergebnis.quellen],
         # Genau die Termine, die das Werkzeug geliefert hat – nie vom Modell formuliert.
         aktion=(
-            TerminVorschlag(slots=werkzeuge.termin_vorschlag)
-            if werkzeuge.termin_vorschlag is not None
+            TerminVorschlag(slots=ergebnis.termin_vorschlag)
+            if ergebnis.termin_vorschlag is not None
             else None
         ),
     )

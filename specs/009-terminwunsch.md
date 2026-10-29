@@ -1,6 +1,6 @@
 # Spec 009 – Terminwunsch regelbasiert erkennen
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 005, 006, 008
 **Abnahmetests:** `tests/acceptance/009_terminwunsch.robot` und
 `tests/acceptance/009_terminwunsch_ui.robot` (Tag `spec-009`)
@@ -94,3 +94,20 @@ Terminwunsch mit genau einem Standort:
 
 ## Umsetzungsnotizen
 
+Plan:
+1. `leitplanken/terminwunsch.py`: `nennt_termin()` und `erkenne_terminwunsch(nachricht, katalog)`
+   – Wörter aus `normalize()`, Fachrichtung per Präfix (auch ohne `-ie`), Ort am ersten Wort.
+   Ergebnis: Fachrichtung, Ort, passende Standorte am Ort, alle Anbieter im Verbund.
+2. Antworttexte für die vier Fälle und die Uhrzeit-Leitplanke in `leitplanken/texte.py`.
+3. `run_chat`: Notfall → Terminwunsch (Terminsystem über den `Werkzeugkasten`, max. 5) → LLM.
+4. `ChatErgebnis` bekommt `termin_vorschlag`; `api_chat` liest die `aktion` von dort.
+5. Leitplanke gegen erfundene Uhrzeiten nach dem LLM-Ablauf.
+6. pytest: Erkennung (positiv/negativ), alle Antwortfälle, Leitplanke mit Stub-Provider.
+7. Container neu bauen, `make lint`, `make test`, `make acceptance SPEC=009`, `make acceptance`, `make eval`.
+8. Factory-Log, PR, CI abwarten.
+
+
+Entscheidungen (Details und offene Punkte im Factory-Log):
+- Zwei genannte Orte gelten wie zwei Fachrichtungen als nicht eindeutig → LLM-Ablauf.
+- Leitplanke greift, wenn das Terminsystem keinen Termin geliefert hat (Fehler oder leer).
+- Ergebnis: pytest 366 grün, `make acceptance SPEC=009` 9/9, `make acceptance` 70/70.

@@ -22,6 +22,48 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
+
+- Anlass: Generalprobe mit `qwen2.5:7b` – bei „Termin in der Gastroenterologie in Fürth"
+  kein Aufruf von `freie_termine_suchen`, einmal Wissenstext, einmal erfundene Termine.
+- Ergebnis: Eindeutige Terminwünsche (Termin + genau eine Fachrichtung + genau ein Ort)
+  beantwortet jetzt der Server ohne LLM; Termine kommen nur aus dem Terminsystem.
+  Im LLM-Ablauf ersetzt eine Leitplanke Antworten mit Uhrzeit, wenn das Terminsystem
+  keine Termine geliefert hat.
+- Durchläufe bis alle Tests grün: 1 (lint, pytest 366, `make acceptance SPEC=009` 9/9,
+  `make acceptance` 70/70 ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0).
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Eine angefangene, unbenutzte Hilfsfunktion im neuen Modul noch vor dem ersten Lauf
+    beim Durchlesen entfernt. Sonst keine.
+- Getroffene Annahmen:
+  - „einen Ort": Nennt die Nachricht **zwei** Orte (z. B. „Stein oder Feucht"), ist der
+    Wunsch nicht eindeutig → bisheriger LLM-Ablauf. Analog zu „genau einer Fachrichtung".
+  - Mehrwort-Fachrichtungen: Jedes Wort der Folge darf gebeugt sein (Präfixvergleich),
+    damit „in der Inneren Medizin" erkannt wird – dieselbe Regel wie bei Einwortnamen.
+  - „`freie_termine_suchen` nicht erfolgreich aufgerufen" = das Terminsystem hat keinen
+    Termin geliefert (Fehler **oder** leere Liste). Uhrzeiten nach einer leeren Liste
+    wären ebenso erfunden.
+  - Antworttexte der vier Fälle stehen wie die Leitplanken-Texte in `leitplanken/texte.py`.
+    Formulierung „freie Termine für <Fachrichtung> im <Standort>" statt „in der …",
+    weil „in der Innere Medizin" grammatisch nicht passt.
+  - Keine freien Termine: Antwort nennt die Telefonnummer des Standorts.
+  - Die `aktion` kommt jetzt aus `ChatErgebnis.termin_vorschlag` statt direkt aus dem
+    `Werkzeugkasten`; Verhalten im LLM-Ablauf unverändert.
+- Nicht ausgeführt:
+  - `make acceptance-llm` und `make eval MODUS=voll` – Vorgabe des Menschen für diesen
+    Lauf: `LLM_PROVIDER=fake`, kein Ollama.
+- Offene Punkte:
+  - Mehrere Standorte am Ort: Schreibt die Person danach „Termin Innere Medizin im MVZ
+    Nürnberg Süd", erkennt die Regel wieder den Ort Nürnberg und nennt erneut alle drei
+    Standorte (Standortnamen werden laut Spec nicht ausgewertet). Ohne das Wort „Termin"
+    geht die Antwort an das LLM mit Verlauf. Kandidat für eine Folgespec.
+  - Orte, die auch Alltagswörter sind („Stein", „Lauf", „Feucht"), können in seltenen
+    Sätzen falsch als Ort gelten („Termin wegen Nierenstein" trifft nicht, „ein Stein" schon).
+  - Die Uhrzeit-Leitplanke ersetzt auch korrekte Öffnungszeiten („ab 08:00"), wenn die
+    Frage „Termin" enthält und kein Termin geliefert wurde.
+- Eingriffe durch den Menschen:
+  - Lauf ohne Ollama; CI nach dem Push abwarten, nicht mergen.
+
 ## Spec 008 – Chat-Oberfläche (2026-10-27)
 
 - Durchläufe bis alle Tests grün: 1 (`make lint` 1, `make acceptance SPEC=008` 6/6 im ersten Lauf);

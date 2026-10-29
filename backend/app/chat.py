@@ -9,6 +9,7 @@ from typing import Literal
 
 from app.leitplanken import texte
 from app.leitplanken.notfall import erkenne_notfall
+from app.leitplanken.terminwunsch import Terminwunsch, erkenne_terminwunsch, nennt_termin
 from app.llm.base import (
     AssistantMessage,
     LlmProvider,
@@ -17,7 +18,9 @@ from app.llm.base import (
     ToolResult,
     UserMessage,
 )
-from app.werkzeuge import WISSEN_SUCHEN, Werkzeugkasten
+from app.standorte import STANDORTE_DATEI, Standort
+from app.termine import Slot
+from app.werkzeuge import STANDORTE_TITEL, WISSEN_SUCHEN, Werkzeugkasten
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,8 @@ LIMIT_MELDUNG = "Werkzeuglimit erreicht. Antworte jetzt mit den vorhandenen Erge
 # Letzte Zeile „Quellen: …", auch mit Markdown-Fettdruck oder als „Quelle:".
 _QUELLEN_ZEILE = re.compile(r"^[ \t>*_-]*quellen?[*_]*[ \t]*:(?P<inhalt>[^\n]*)$", re.I | re.M)
 _EINTRAG_RAND = " \t*_`'\"()[]<>."
+# Uhrzeit in einer Modellantwort, z. B. „09:00", „9.30" oder „9 Uhr" (Spec 009).
+_UHRZEIT = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2} Uhr\b")
 
 Kategorie = Literal["normal", "notfall", "fehler"]
 
@@ -53,6 +58,8 @@ class ChatErgebnis:
     kategorie: Kategorie
     quellen: list[Quelle]
     werkzeugaufrufe: int
+    # Termine aus dem Terminsystem für die `aktion`; nie vom Modell formuliert.
+    termin_vorschlag: list[Slot] | None = None
 
 
 def load_system_prompt(datei: Path = SYSTEM_PROMPT_DATEI) -> str:
@@ -93,6 +100,41 @@ def extract_quellen(antwort: str, gelieferte: dict[str, str]) -> tuple[str, list
     return text, quellen
 
 
+def _aufzaehlung(standorte: list[Standort]) -> str:
+    namen = [s.name for s in standorte]
+    return namen[0] if len(namen) == 1 else f"{', '.join(namen[:-1])} und {namen[-1]}"
+
+
+def _terminwunsch_beantworten(wunsch: Terminwunsch, werkzeuge: Werkzeugkasten) -> ChatErgebnis:
+    """Antwort ohne LLM; Termine kommen ausschließlich aus dem Terminsystem."""
+    quellen = [Quelle(STANDORTE_DATEI, STANDORTE_TITEL)]
+    if not wunsch.am_ort:
+        text = texte.TERMINWUNSCH_NICHT_AM_ORT.format(
+            ort=wunsch.ort,
+            fachrichtung=wunsch.fachrichtung,
+            standorte=_aufzaehlung(wunsch.im_verbund),
+        )
+        return ChatErgebnis(text, "normal", quellen, 0)
+    if len(wunsch.am_ort) > 1:
+        text = texte.TERMINWUNSCH_MEHRERE.format(
+            fachrichtung=wunsch.fachrichtung,
+            ort=wunsch.ort,
+            standorte=_aufzaehlung(wunsch.am_ort),
+        )
+        return ChatErgebnis(text, "normal", quellen, 0)
+    (standort,) = wunsch.am_ort
+    slots = werkzeuge.termine_vorschlagen(standort.id, wunsch.fachrichtung)
+    if not slots:
+        text = texte.TERMINWUNSCH_KEINE_TERMINE.format(
+            standort=standort.name, fachrichtung=wunsch.fachrichtung, telefon=standort.telefon
+        )
+        return ChatErgebnis(text, "normal", quellen, 0)
+    text = texte.TERMINWUNSCH_TERMINE.format(
+        fachrichtung=wunsch.fachrichtung, standort=standort.name
+    )
+    return ChatErgebnis(text, "normal", quellen, 0, termin_vorschlag=slots)
+
+
 def run_chat(
     provider: LlmProvider,
     system_prompt: str,
@@ -108,6 +150,10 @@ def run_chat(
         return ChatErgebnis(
             text, "notfall", [Quelle(texte.NOTFALL_DOKUMENT, texte.NOTFALL_TITEL)], 0
         )
+    # Ebenfalls regelbasiert, damit das Modell keine Termine erfinden kann (Spec 009).
+    if (wunsch := erkenne_terminwunsch(nachricht, werkzeuge.katalog)) is not None:
+        logger.info("Chat: Terminwunsch erkannt, LLM nicht aufgerufen")
+        return _terminwunsch_beantworten(wunsch, werkzeuge)
     nachrichten: list[Message] = [*verlauf, UserMessage(nachricht)]
     aufrufe = 0
     while True:
@@ -135,9 +181,16 @@ def run_chat(
     if texte.KANARIE.casefold() in antwort.text.casefold():
         # Kein Inhalt im Log: Die Antwort kann den Systemprompt enthalten.
         logger.warning("Leitplanke: Antwort mit interner Kennung ersetzt")
-        return ChatErgebnis(texte.STANDARDANTWORT, "normal", [], aufrufe)
+        return ChatErgebnis(
+            texte.STANDARDANTWORT, "normal", [], aufrufe, werkzeuge.termin_vorschlag
+        )
+
+    if nennt_termin(nachricht) and not werkzeuge.termin_vorschlag and _UHRZEIT.search(antwort.text):
+        # Uhrzeiten ohne Termine aus dem Terminsystem sind vermutlich erfunden.
+        logger.warning("Leitplanke: Antwort mit Uhrzeit ohne Terminsystem ersetzt")
+        return ChatErgebnis(texte.TERMIN_NUR_AUS_TERMINSYSTEM, "normal", [], aufrufe)
 
     text, quellen = extract_quellen(antwort.text, werkzeuge.gelieferte_dokumente)
     if not text:
-        return ChatErgebnis(LEERE_ANTWORT, "normal", [], aufrufe)
-    return ChatErgebnis(text, "normal", quellen, aufrufe)
+        return ChatErgebnis(LEERE_ANTWORT, "normal", [], aufrufe, werkzeuge.termin_vorschlag)
+    return ChatErgebnis(text, "normal", quellen, aufrufe, werkzeuge.termin_vorschlag)
