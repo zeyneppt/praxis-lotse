@@ -332,7 +332,7 @@ def test_nichts_gefunden_ohne_quellenzeile_hat_keine_quellen(suche: list[Treffer
         ]
     )
 
-    ergebnis = run_chat(provider, "s", [], "Gibt es Akupunktur?", kasten())
+    ergebnis = run_chat(provider, "s", [], "Akupunktur?", kasten())
 
     assert ergebnis.werkzeugaufrufe == 1
     assert ergebnis.quellen == []
@@ -382,7 +382,7 @@ def test_fake_provider_nennt_besten_treffer(suche: list[Treffer]) -> None:
 
 def test_fake_provider_ohne_treffer(suche: list[Treffer]) -> None:
     suche.clear()
-    ergebnis = run_chat(FakeProvider(), "system", [], "Gibt es Akupunktur?", kasten())
+    ergebnis = run_chat(FakeProvider(), "system", [], "Akupunktur?", kasten())
 
     assert ergebnis.antwort == "[Testmodus] Nichts gefunden"
     assert ergebnis.quellen == []
@@ -401,7 +401,7 @@ def test_werkzeuglimit_erzwingt_antwort(suche: list[Treffer]) -> None:
     endlos = AssistantMessage("", [call("wissen_suchen", '{"frage": "x"}')])
     provider = ScriptedProvider([endlos] * MAX_WERKZEUGAUFRUFE + [AssistantMessage("Fertig.")])
 
-    ergebnis = run_chat(provider, "s", [], "Eine ganz normale Frage", kasten())
+    ergebnis = run_chat(provider, "s", [], "Frage", kasten())
 
     assert ergebnis.antwort == "Fertig."
     assert ergebnis.werkzeugaufrufe == MAX_WERKZEUGAUFRUFE
@@ -414,7 +414,7 @@ def test_werkzeugaufrufe_ueber_dem_limit_bekommen_fehlerergebnis(suche: list[Tre
     )
     provider = ScriptedProvider([viele, AssistantMessage("Fertig.")])
 
-    ergebnis = run_chat(provider, "s", [], "Eine ganz normale Frage", kasten())
+    ergebnis = run_chat(provider, "s", [], "Frage", kasten())
 
     ergebnisse = [m for m in provider.aufrufe[-1][0] if isinstance(m, ToolResult)]
     assert [e.call_id for e in ergebnisse] == [f"c{i}" for i in range(6)]
@@ -425,7 +425,7 @@ def test_werkzeugaufrufe_ueber_dem_limit_bekommen_fehlerergebnis(suche: list[Tre
 
 def test_werkzeugaufrufe_trotz_verbot_werden_ignoriert(suche: list[Treffer]) -> None:
     stur = AssistantMessage("Teilantwort.", [call("wissen_suchen", '{"frage": "x"}')])
-    ergebnis = run_chat(ScriptedProvider([stur]), "s", [], "Eine ganz normale Frage", kasten())
+    ergebnis = run_chat(ScriptedProvider([stur]), "s", [], "Frage", kasten())
 
     assert ergebnis.antwort == "Teilantwort."
     assert ergebnis.werkzeugaufrufe == MAX_WERKZEUGAUFRUFE
@@ -439,7 +439,7 @@ def test_ungueltiger_werkzeugaufruf_wird_dem_modell_zurueckgegeben() -> None:
         ]
     )
 
-    ergebnis = run_chat(provider, "s", [], "Eine ganz normale Frage", kasten())
+    ergebnis = run_chat(provider, "s", [], "Frage", kasten())
 
     rueckgabe = provider.aufrufe[1][0][-1]
     assert isinstance(rueckgabe, ToolResult) and rueckgabe.is_error
@@ -451,9 +451,9 @@ def test_verlauf_wird_dem_modell_mitgegeben(suche: list[Treffer]) -> None:
     provider = ScriptedProvider([AssistantMessage("Gern.")])
     verlauf: list[Message] = [UserMessage("Schwabach"), AssistantMessage("Ok.")]
 
-    run_chat(provider, "s", verlauf, "Welche Fachrichtungen gibt es?", kasten())
+    run_chat(provider, "s", verlauf, "Fachrichtungen?", kasten())
 
-    assert provider.aufrufe[0][0] == [*verlauf, UserMessage("Welche Fachrichtungen gibt es?")]
+    assert provider.aufrufe[0][0] == [*verlauf, UserMessage("Fachrichtungen?")]
 
 
 def test_antwort_ohne_werkzeug_loest_rueckfallsuche_aus(suche: list[Treffer]) -> None:
@@ -486,15 +486,14 @@ def test_keine_rueckfallsuche_nach_eigenem_werkzeugaufruf(suche: list[Treffer]) 
         ]
     )
 
-    ergebnis = run_chat(provider, "s", [], "Was gibt es in Schwabach?", kasten())
+    ergebnis = run_chat(provider, "s", [], "Schwabach?", kasten())
 
     assert len(provider.aufrufe) == 2
     assert [q.dokument for q in ergebnis.quellen] == ["standorte.json"]
 
 
 def test_leere_antwort_wird_ersetzt(suche: list[Treffer]) -> None:
-    provider = ScriptedProvider([AssistantMessage("")])
-    ergebnis = run_chat(provider, "s", [], "Eine ganz normale Frage", kasten())
+    ergebnis = run_chat(ScriptedProvider([AssistantMessage("")]), "s", [], "Frage", kasten())
     assert ergebnis.antwort == LEERE_ANTWORT
 
 

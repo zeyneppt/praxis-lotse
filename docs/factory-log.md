@@ -59,7 +59,9 @@ Vorlage:
     `*`-Aufzählungen bleiben.
 - Offene Punkte:
   - „Hallo" bekommt jetzt die Kurznachricht-Antwort („Ich kann frühere Nachrichten nicht
-    fortsetzen …"); für eine Begrüßung klingt das schief. Ggf. eigene Antwort für Grüße.
+    fortsetzen …"); vom Menschen so entschieden.
+  - Wunschwort `einen`: „Ich habe einen Termin am Montag, wo kann ich parken?" bekommt die
+    Termin-Rückfrage statt der Parkinfo (spec-konform, Kandidat für eine Folge-Spec).
   - Offene Grenze (Entscheidung Mensch: Folge-Spec): „Kardiologie Fürth" ohne „Termin" als
     Antwort auf die Rückfrage geht weiter an das LLM – mit Verlauf, also genau in die Lage
     der Generalprobe.
@@ -89,6 +91,17 @@ Vorlage:
   - „Ergänzung (Mensch)" in Spec 010 vom Menschen bestätigt.
   - Danach: lint ok, pytest 494, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75
     ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0.
+- Review Runde 3: Änderungen nötig, 2 blockierende Punkte, beide vom Menschen entschieden:
+  - Ergänzung in Spec 006 und `notruf`-Muster außerhalb der eigenen Spec: bleibt – ausdrückliche
+    Entscheidung des Menschen, als „Ergänzung (Mensch, Spec 010)" gekennzeichnet.
+  - Kurznachricht-Regel immer noch zu breit („Öffnungszeiten?", „Rezept bestellen",
+    „Akupunktur?" bekamen die feste Antwort). Die in Runde 1 umgeschriebenen pytest-Eingaben
+    hatten diesen Rückschritt verdeckt statt ihn zu beheben – mein Fehler. Entscheidung Mensch:
+    feste Wortliste (ja, nein, ok, gut, bitte, hallo, danke, hilfe …). Umgeschriebene
+    Eingaben in `test_chat.py` auf den Stand von main zurückgesetzt, außer „Hallo" (steht auf
+    der Liste). `nennt_angaben()` entfernt, weil nicht mehr gebraucht.
+  - 112-Satz auf Wunsch des Menschen auch im Wortlaut der Ergänzung in Spec 010 nachgetragen.
+  - Hinweis umgesetzt: `Terminwunsch(...)` im Ein-Standort-Fall mit Keyword-Argumenten.
 
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 

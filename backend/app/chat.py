@@ -181,7 +181,14 @@ def _allgemeinen_terminwunsch_beantworten(
             # Nur ein Anbieter im Verbund: Termine wie bei einem vollständigen Wunsch.
             (standort,) = im_verbund
             return _terminwunsch_beantworten(
-                Terminwunsch(fachrichtung, standort.ort, None, im_verbund, im_verbund), werkzeuge
+                Terminwunsch(
+                    fachrichtung=fachrichtung,
+                    ort=standort.ort,
+                    standort=None,
+                    am_ort=im_verbund,
+                    im_verbund=im_verbund,
+                ),
+                werkzeuge,
             )
         text = texte.TERMINWUNSCH_STANDORTE_FUER_FACHRICHTUNG.format(
             fachrichtung=fachrichtung,
@@ -230,7 +237,7 @@ def run_chat(
         logger.info("Chat: allgemeiner Terminwunsch erkannt, LLM nicht aufgerufen")
         return _allgemeinen_terminwunsch_beantworten(allgemein, werkzeuge)
     # „ja", „ok" usw. kann der Assistent ohne Verlauf nicht fortsetzen (Spec 010, Ergänzung).
-    if (kurz := erkenne_kurznachricht(nachricht, werkzeuge.katalog)) is not None:
+    if (kurz := erkenne_kurznachricht(nachricht)) is not None:
         logger.info("Chat: Kurznachricht erkannt, LLM nicht aufgerufen")
         text = texte.KURZNACHRICHT_DANKE if kurz == "danke" else texte.KURZNACHRICHT
         return ChatErgebnis(text, "normal", [], 0)

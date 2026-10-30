@@ -54,7 +54,10 @@ dem Standortverzeichnis enthält.
   aus `leitplanken/texte.py`: „Ich kann frühere Nachrichten nicht fortsetzen. Bitte stellen
   Sie Ihre Frage in einem ganzen Satz, zum Beispiel: „Termin Gastroenterologie in Fürth"
   oder „Was muss ich zum ersten Termin mitbringen?"" Bei „danke" ist eine freundliche
-  Kurzantwort ok.
+  Kurzantwort ok. Nachtrag (Mensch, nach Review): Der feste Text endet mit „Im Notfall rufen
+  Sie die 112, den ärztlichen Bereitschaftsdienst erreichen Sie unter 116117." Als
+  Kurznachricht gelten nur Bestätigungs-, Gruß-, Dank- und Hilfewörter (feste Wortliste);
+  kurze Fragen wie „Öffnungszeiten?" gehen weiter an die Wissensbasis.
 - (b) Markdown in LLM-Antworten serverseitig entfernen: `**fett**`/`__fett__` → Text,
   `[Text](URL)` → Text, Überschriften-`#` entfernen. Listen mit „- " dürfen bleiben.
   Die Oberfläche verlinkt Telefonnummern schon selbst.
@@ -81,10 +84,10 @@ Plan:
 
 Entscheidungen (Details und offene Punkte im Factory-Log):
 - Nur Standort genannt → Beispiel „Termin <Fachrichtung> im <Standortname>".
-- Kurznachricht = höchstens 2 Wörter ohne Wort mit `termin`, Fachrichtung, Ort oder Standort
-  (nach Review); „danke" (Wort mit `dank`) → freundliche Kurzantwort.
-- Markdown-Entfernung nur für LLM-Antworten; bestehende pytest-Eingaben, die den
-  LLM-Ablauf prüfen, auf ganze Sätze umgestellt.
+- Kurznachricht = 1–2 Wörter, alle aus einer festen Liste von Bestätigungs-, Gruß-, Dank- und
+  Hilfewörtern (Entscheidung Mensch nach Review-Runde 3); „danke" → freundliche Kurzantwort.
+- Markdown-Entfernung nur für LLM-Antworten. Bestehende pytest-Eingaben bleiben wie in main,
+  außer „Hallo" (steht auf der Wortliste) und der Hausarzt-Fall aus 009.
 - Nach Review (Entscheidung Mensch): Kurznachricht-Text nennt 112 und 116117; „Notruf" ist
   Notfallmuster (Ergänzung in Spec 006). „Kardiologie Fürth" ohne „Termin" → Folge-Spec.
-- Ergebnis: pytest 494 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.
+- Ergebnis: pytest 504 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.

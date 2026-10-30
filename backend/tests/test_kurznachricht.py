@@ -4,7 +4,7 @@ from app.chat import run_chat, strip_markdown
 from app.leitplanken import texte
 from app.leitplanken.kurznachricht import erkenne_kurznachricht
 from app.llm.base import AssistantMessage, Message, ToolSpec
-from tests.test_terminwunsch import KATALOG, ErfinderProvider, KeinLlm, StubTerminsystem, kasten
+from tests.test_terminwunsch import ErfinderProvider, KeinLlm, StubTerminsystem, kasten
 
 # --- (a) Kurze Nachrichten ohne Frageinhalt ----------------------------------
 
@@ -17,7 +17,10 @@ from tests.test_terminwunsch import KATALOG, ErfinderProvider, KeinLlm, StubTerm
         ("nein.", "kurz"),
         ("Ja, bitte", "kurz"),
         ("Hallo", "kurz"),
-        ("?", "kurz"),
+        ("Hilfe!", "kurz"),
+        ("Okay gut", "kurz"),
+        ("Tschüss", "kurz"),
+        ("?", None),
         ("danke", "danke"),
         ("Danke!", "danke"),
         ("Vielen Dank", "danke"),
@@ -35,10 +38,16 @@ from tests.test_terminwunsch import KATALOG, ErfinderProvider, KeinLlm, StubTerm
         ("Kardiologie?", None),
         ("MVZ Lauf", None),
         ("Danke, Fürth", None),
+        # Kurze Fragen mit Inhalt (Review-Runde 3)
+        ("Öffnungszeiten?", None),
+        ("Rezept bestellen", None),
+        ("Parkplätze vorhanden?", None),
+        ("Akupunktur?", None),
+        ("Frage", None),
     ],
 )
 def test_kurznachricht_erkannt(nachricht: str, erwartet: str | None) -> None:
-    assert erkenne_kurznachricht(nachricht, KATALOG) == erwartet
+    assert erkenne_kurznachricht(nachricht) == erwartet
 
 
 @pytest.mark.parametrize("nachricht", ["ja", "ok", "nein", "Ja bitte"])
@@ -93,7 +102,10 @@ def test_kurzer_terminwunsch_hat_vorrang() -> None:
     assert ergebnis.antwort.startswith("Gern suche ich freie Termine")
 
 
-@pytest.mark.parametrize("nachricht", ["Termin verschieben", "Termin Kardiologie"])
+@pytest.mark.parametrize(
+    "nachricht",
+    ["Termin verschieben", "Termin Kardiologie", "Öffnungszeiten?", "Rezept bestellen"],
+)
 def test_kurze_nachricht_mit_frageinhalt_geht_an_llm(nachricht: str) -> None:
     ergebnis = run_chat(
         ErfinderProvider("Antwort aus der Wissensbasis."),
