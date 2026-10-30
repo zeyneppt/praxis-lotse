@@ -53,15 +53,19 @@ Vorlage:
     bzw. in Verzeichnisreihenfolge).
   - Eine Fachrichtung mit unbekanntem Ort („Termin Kardiologie in München") gilt als „nur
     Fachrichtung"; der Text nennt den Standort, an dem es sie gibt.
-  - Kurznachricht = höchstens 2 Wörter, wie in der Klammer der Ergänzung definiert, ohne
-    weitere Inhaltsprüfung. „danke" = ein Wort, das mit `dank` beginnt („Vielen Dank").
+  - Kurznachricht = höchstens 2 Wörter ohne Wort mit `termin`, Fachrichtung, Ort oder
+    Standort (seit Review-Runde 1). „danke" = ein Wort, das mit `dank` beginnt („Vielen Dank").
   - Markdown-Entfernung nur im LLM-Ablauf, nach dem Abtrennen der Quellenzeile; Listen und
     `*`-Aufzählungen bleiben.
 - Offene Punkte:
   - „Hallo" bekommt jetzt die Kurznachricht-Antwort („Ich kann frühere Nachrichten nicht
-    fortsetzen …"); für eine Begrüßung klingt das schief. Auch kurze echte Fragen wie
-    „Öffnungszeiten Fürth?" gehen nicht mehr an das LLM. Ggf. eigene Antwort für Grüße bzw.
-    Ausnahme bei Fachrichtung/Ort.
+    fortsetzen …"); für eine Begrüßung klingt das schief. Ggf. eigene Antwort für Grüße.
+  - „Hilfe!" und „Notruf" erkennt die Notfall-Erkennung (006) nicht; sie bekommen jetzt die
+    feste Kurznachricht-Antwort ohne 112-Hinweis (Review-Runde 2). Entscheidung Mensch:
+    Notfallwörter ergänzen oder 112/116117 in den festen Text.
+  - „Ja, bitte" auf eine Rückfrage bekommt ebenfalls die feste Antwort (bewusst, Verlauf
+    nicht im Umfang). „Kardiologie Fürth" ohne „Termin" nach der Rückfrage geht weiter an
+    das LLM – Kandidat für eine Folge-Spec.
   - Ausschluss- und Wunschwörter gelten nur am Wortanfang: „Terminbuchung" oder
     „Terminabsage" werden nicht als Wunsch- bzw. Ausschlusswort erkannt.
   - `make acceptance-llm` und `make eval MODUS=voll` nicht gelaufen (kein Ollama).
@@ -78,6 +82,7 @@ Vorlage:
     „__wichtig__." nicht mehr entfernt, jetzt `(?!\.?\w)`.
   - Nach den Korrekturen: lint ok, pytest 484, `make acceptance SPEC=010` 5/5,
     `make acceptance` 75/75.
+- Review Runde 2: freigegeben, keine blockierenden Punkte (Hinweise oben unter „Offene Punkte").
 
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 
