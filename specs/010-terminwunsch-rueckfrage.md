@@ -81,7 +81,8 @@ Plan:
 
 Entscheidungen (Details und offene Punkte im Factory-Log):
 - Nur Standort genannt → Beispiel „Termin <Fachrichtung> im <Standortname>".
-- Kurznachricht = höchstens 2 Wörter; „danke" (Wort mit `dank`) → freundliche Kurzantwort.
+- Kurznachricht = höchstens 2 Wörter ohne Wort mit `termin`, Fachrichtung, Ort oder Standort
+  (nach Review); „danke" (Wort mit `dank`) → freundliche Kurzantwort.
 - Markdown-Entfernung nur für LLM-Antworten; bestehende pytest-Eingaben, die den
   LLM-Ablauf prüfen, auf ganze Sätze umgestellt.
-- Ergebnis: pytest 471 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.
+- Ergebnis: pytest 484 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.

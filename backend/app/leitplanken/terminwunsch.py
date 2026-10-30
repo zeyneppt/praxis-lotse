@@ -37,6 +37,18 @@ def nennt_termin(nachricht: str) -> bool:
     return _nennt_termin(_woerter(nachricht))
 
 
+def nennt_angaben(nachricht: str, katalog: StandortKatalog) -> bool:
+    """Nennt die Nachricht `termin`, eine Fachrichtung, einen Ort oder einen Standort?"""
+    woerter = _woerter(nachricht)
+    standorte = katalog.search()
+    return (
+        _nennt_termin(woerter)
+        or any(_nennt_fachrichtung(woerter, f) for f in katalog.fachrichtungen())
+        or any(_nennt_ort(woerter, s.ort) for s in standorte)
+        or _genannter_standort(woerter, standorte) is not None
+    )
+
+
 def _nennt_fachrichtung(woerter: list[str], name: str) -> bool:
     teile = _woerter(name)
     if len(teile) > 1:

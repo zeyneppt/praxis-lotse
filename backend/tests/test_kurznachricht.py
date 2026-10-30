@@ -4,7 +4,7 @@ from app.chat import run_chat, strip_markdown
 from app.leitplanken import texte
 from app.leitplanken.kurznachricht import erkenne_kurznachricht
 from app.llm.base import AssistantMessage, Message, ToolSpec
-from tests.test_terminwunsch import ErfinderProvider, KeinLlm, StubTerminsystem, kasten
+from tests.test_terminwunsch import KATALOG, ErfinderProvider, KeinLlm, StubTerminsystem, kasten
 
 # --- (a) Kurze Nachrichten ohne Frageinhalt ----------------------------------
 
@@ -25,10 +25,20 @@ from tests.test_terminwunsch import ErfinderProvider, KeinLlm, StubTerminsystem,
         ("Was muss ich mitbringen?", None),
         ("Ja, das passt gut", None),
         ("Danke, und wann ist geöffnet?", None),
+        # Frageinhalt: Wort mit „termin", Fachrichtung, Ort oder Standort (Review)
+        ("Termin verschieben", None),
+        ("Termin absagen", None),
+        ("Termin Kardiologie", None),
+        ("Termine Neurologie?", None),
+        ("Neurologie Erlangen", None),
+        ("Öffnungszeiten Fürth?", None),
+        ("Kardiologie?", None),
+        ("MVZ Lauf", None),
+        ("Danke, Fürth", None),
     ],
 )
 def test_kurznachricht_erkannt(nachricht: str, erwartet: str | None) -> None:
-    assert erkenne_kurznachricht(nachricht) == erwartet
+    assert erkenne_kurznachricht(nachricht, KATALOG) == erwartet
 
 
 @pytest.mark.parametrize("nachricht", ["ja", "ok", "nein", "Ja bitte"])
@@ -64,6 +74,19 @@ def test_kurzer_terminwunsch_hat_vorrang() -> None:
     assert ergebnis.antwort.startswith("Gern suche ich freie Termine")
 
 
+@pytest.mark.parametrize("nachricht", ["Termin verschieben", "Termin Kardiologie"])
+def test_kurze_nachricht_mit_frageinhalt_geht_an_llm(nachricht: str) -> None:
+    ergebnis = run_chat(
+        ErfinderProvider("Antwort aus der Wissensbasis."),
+        "system",
+        [],
+        nachricht,
+        kasten(StubTerminsystem()),
+    )
+
+    assert ergebnis.antwort == "Antwort aus der Wissensbasis."
+
+
 def test_laengere_nachricht_geht_an_llm() -> None:
     ergebnis = run_chat(
         ErfinderProvider("Bitte bringen Sie die Versichertenkarte mit."),
@@ -93,6 +116,8 @@ def test_laengere_nachricht_geht_an_llm() -> None:
         ("Rufen Sie +49 911 0000004 an.", "Rufen Sie +49 911 0000004 an."),
         ("Nr. #3 bleibt", "Nr. #3 bleibt"),
         ("snake_case und 2*3*4", "snake_case und 2*3*4"),
+        ("Datei __init__.py", "Datei __init__.py"),
+        ("[Info](https://example.org/a_(b))", "Info"),
     ],
 )
 def test_strip_markdown(roh: str, erwartet: str) -> None:

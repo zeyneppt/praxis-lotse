@@ -65,6 +65,19 @@ Vorlage:
   - Ausschluss- und Wunschwörter gelten nur am Wortanfang: „Terminbuchung" oder
     „Terminabsage" werden nicht als Wunsch- bzw. Ausschlusswort erkannt.
   - `make acceptance-llm` und `make eval MODUS=voll` nicht gelaufen (kein Ollama).
+- Review Runde 1 (Subagent `reviewer`), 2 blockierende Punkte:
+  - Kurznachricht-Regel zu breit: „Termin absagen", „Termin Kardiologie", „Öffnungszeiten
+    Fürth?" bekamen die feste Antwort statt Wissensbasis/LLM – ein Rückschritt, den ich nur
+    als offenen Punkt notiert und trotzdem `fertig` gesetzt hatte. Behoben: Kurznachricht nur
+    ohne Wort mit `termin` und ohne Fachrichtung, Ort oder Standort (`nennt_angaben()`);
+    pytest-Fälle dafür ergänzt. „Hallo" bekommt weiterhin die feste Antwort.
+  - „Ergänzung (Mensch)" in der Spec: Wortlaut vom Menschen in dieser Sitzung vorgegeben
+    (Auftrag zu Spec 010), vom Agenten eingetragen; Bestätigung im PR erbeten.
+  - Hinweise umgesetzt: `__init__.py` bleibt unverändert, Links mit Klammern in der URL
+    werden vollständig entfernt (je ein pytest-Fall). Ein Fehlversuch: `(?![\w.])` hätte
+    „__wichtig__." nicht mehr entfernt, jetzt `(?!\.?\w)`.
+  - Nach den Korrekturen: lint ok, pytest 484, `make acceptance SPEC=010` 5/5,
+    `make acceptance` 75/75.
 
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 

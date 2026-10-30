@@ -54,8 +54,8 @@ _EINTRAG_RAND = " \t*_`'\"()[]<>."
 # Uhrzeit in einer Modellantwort, z. B. „09:00", „9.30" oder „9 Uhr" (Spec 009).
 _UHRZEIT = re.compile(r"\b\d{1,2}[:.]\d{2}\b|\b\d{1,2} uhr\b", re.I)
 # Markdown, das die Oberfläche nicht darstellt (Spec 010, Ergänzung). Listen mit „- " bleiben.
-_FETT = re.compile(r"\*\*([^\n]+?)\*\*|__([^\n]+?)__")
-_LINK = re.compile(r"\[([^\]\n]+)\]\([^)\s]*\)")
+_FETT = re.compile(r"\*\*([^\n]+?)\*\*|(?<!\w)__([^\n]+?)__(?!\.?\w)")
+_LINK = re.compile(r"\[([^\]\n]+)\]\((?:[^()\s]|\([^()\s]*\))*\)")
 _UEBERSCHRIFT = re.compile(r"^[ \t]*#{1,6}[ \t]+", re.M)
 
 Kategorie = Literal["normal", "notfall", "fehler"]
@@ -230,7 +230,7 @@ def run_chat(
         logger.info("Chat: allgemeiner Terminwunsch erkannt, LLM nicht aufgerufen")
         return _allgemeinen_terminwunsch_beantworten(allgemein, werkzeuge)
     # „ja", „ok" usw. kann der Assistent ohne Verlauf nicht fortsetzen (Spec 010, Ergänzung).
-    if (kurz := erkenne_kurznachricht(nachricht)) is not None:
+    if (kurz := erkenne_kurznachricht(nachricht, werkzeuge.katalog)) is not None:
         logger.info("Chat: Kurznachricht erkannt, LLM nicht aufgerufen")
         text = texte.KURZNACHRICHT_DANKE if kurz == "danke" else texte.KURZNACHRICHT
         return ChatErgebnis(text, "normal", [], 0)
