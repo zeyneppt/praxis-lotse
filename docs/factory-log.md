@@ -60,12 +60,9 @@ Vorlage:
 - Offene Punkte:
   - „Hallo" bekommt jetzt die Kurznachricht-Antwort („Ich kann frühere Nachrichten nicht
     fortsetzen …"); für eine Begrüßung klingt das schief. Ggf. eigene Antwort für Grüße.
-  - „Hilfe!" und „Notruf" erkennt die Notfall-Erkennung (006) nicht; sie bekommen jetzt die
-    feste Kurznachricht-Antwort ohne 112-Hinweis (Review-Runde 2). Entscheidung Mensch:
-    Notfallwörter ergänzen oder 112/116117 in den festen Text.
-  - „Ja, bitte" auf eine Rückfrage bekommt ebenfalls die feste Antwort (bewusst, Verlauf
-    nicht im Umfang). „Kardiologie Fürth" ohne „Termin" nach der Rückfrage geht weiter an
-    das LLM – Kandidat für eine Folge-Spec.
+  - Offene Grenze (Entscheidung Mensch: Folge-Spec): „Kardiologie Fürth" ohne „Termin" als
+    Antwort auf die Rückfrage geht weiter an das LLM – mit Verlauf, also genau in die Lage
+    der Generalprobe.
   - Ausschluss- und Wunschwörter gelten nur am Wortanfang: „Terminbuchung" oder
     „Terminabsage" werden nicht als Wunsch- bzw. Ausschlusswort erkannt.
   - `make acceptance-llm` und `make eval MODUS=voll` nicht gelaufen (kein Ollama).
@@ -83,6 +80,15 @@ Vorlage:
   - Nach den Korrekturen: lint ok, pytest 484, `make acceptance SPEC=010` 5/5,
     `make acceptance` 75/75.
 - Review Runde 2: freigegeben, keine blockierenden Punkte (Hinweise oben unter „Offene Punkte").
+- Entscheidungen des Menschen nach Runde 2:
+  - Notfall-Lücke („Hilfe!", „Notruf" bekamen die Kurznachricht-Antwort ohne 112): Der feste
+    Kurznachricht-Text endet jetzt mit „Im Notfall rufen Sie die 112, den ärztlichen
+    Bereitschaftsdienst erreichen Sie unter 116117."; „notruf" ist Notfallmuster (auch
+    „Notrufnummer"), als „Ergänzung (Mensch, Spec 010)" in Spec 006 vermerkt. pytest dafür.
+  - „Ja, bitte"/„Hallo" behalten die feste Antwort (bewusst, Verlauf nicht im Umfang).
+  - „Ergänzung (Mensch)" in Spec 010 vom Menschen bestätigt.
+  - Danach: lint ok, pytest 494, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75
+    ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0.
 
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 

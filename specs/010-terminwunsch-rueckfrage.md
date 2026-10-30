@@ -85,4 +85,6 @@ Entscheidungen (Details und offene Punkte im Factory-Log):
   (nach Review); „danke" (Wort mit `dank`) → freundliche Kurzantwort.
 - Markdown-Entfernung nur für LLM-Antworten; bestehende pytest-Eingaben, die den
   LLM-Ablauf prüfen, auf ganze Sätze umgestellt.
-- Ergebnis: pytest 484 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.
+- Nach Review (Entscheidung Mensch): Kurznachricht-Text nennt 112 und 116117; „Notruf" ist
+  Notfallmuster (Ergänzung in Spec 006). „Kardiologie Fürth" ohne „Termin" → Folge-Spec.
+- Ergebnis: pytest 494 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.

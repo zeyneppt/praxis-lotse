@@ -46,6 +46,10 @@ from app.sitzungen import SitzungsSpeicher
         "Die Wunde blutet stark und hört nicht auf",
         "Sie hat eine starke Blutung",
         "Mein Kind hat einen Krampfanfall",
+        # Ergänzung (Mensch, Spec 010)
+        "Notruf",
+        "Bitte den NOTRUF verständigen",
+        "Wie ist die Notrufnummer?",
     ],
 )
 def test_koerperliche_notfaelle(text: str) -> None:

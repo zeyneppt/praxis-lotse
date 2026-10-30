@@ -53,6 +53,25 @@ def test_kurznachricht_ohne_llm(nachricht: str) -> None:
     assert ergebnis.werkzeugaufrufe == 0
 
 
+@pytest.mark.parametrize("nachricht", ["Hilfe!", "hilfe", "ja", "Hallo"])
+def test_kurznachricht_nennt_112_und_116117(nachricht: str) -> None:
+    # Entscheidung Mensch (Review Spec 010): Kurze Hilferufe dürfen nicht ohne 112 bleiben.
+    ergebnis = run_chat(KeinLlm(), "system", [], nachricht, kasten(StubTerminsystem()))
+
+    assert ergebnis.antwort.endswith(
+        "Im Notfall rufen Sie die 112, den ärztlichen Bereitschaftsdienst erreichen Sie "
+        "unter 116117."
+    )
+
+
+@pytest.mark.parametrize("nachricht", ["Notruf", "Notruf!", "Wie ist die Notrufnummer?"])
+def test_notruf_loest_notfallantwort_aus(nachricht: str) -> None:
+    ergebnis = run_chat(KeinLlm(), "system", [], nachricht, kasten(StubTerminsystem()))
+
+    assert ergebnis.kategorie == "notfall"
+    assert "112" in ergebnis.antwort
+
+
 def test_danke_bekommt_kurze_freundliche_antwort() -> None:
     ergebnis = run_chat(KeinLlm(), "system", [], "Danke!", kasten(StubTerminsystem()))
 

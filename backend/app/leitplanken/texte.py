@@ -76,7 +76,8 @@ TERMINWUNSCH_RUECKFRAGE = (
 KURZNACHRICHT = (
     "Ich kann frühere Nachrichten nicht fortsetzen. Bitte stellen Sie Ihre Frage in einem "
     'ganzen Satz, zum Beispiel: „Termin Gastroenterologie in Fürth" oder „Was muss ich zum '
-    'ersten Termin mitbringen?"'
+    'ersten Termin mitbringen?" Im Notfall rufen Sie die 112, den ärztlichen '
+    "Bereitschaftsdienst erreichen Sie unter 116117."
 )
 KURZNACHRICHT_DANKE = (
     "Gern geschehen! Wenn Sie noch eine Frage haben, stellen Sie sie bitte in einem ganzen Satz."
