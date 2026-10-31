@@ -22,6 +22,87 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 010 – Unvollständiger Terminwunsch: Rückfrage statt LLM (2026-10-29)
+
+- Anlass: Generalprobe mit `qwen2.5:7b` nach Spec 009 – auf „Welche freien Termine gibt es
+  bei Ihnen?" bot das Modell ohne Werkzeug Fachrichtungen an, die es am zuvor genannten
+  Standort (MVZ Nürnberg Süd) nicht gibt.
+- Ergebnis: Terminwünsche ohne Fachrichtung oder Ort beantwortet der Server ohne LLM, nur mit
+  Angaben aus `standorte.json`. Reihenfolge: Notfall → 009 → 010 → Kurznachricht → LLM.
+  Dazu die Ergänzungen des Menschen: (a) Kurznachrichten (≤ 2 Wörter) bekommen eine feste
+  Antwort, „danke" eine freundliche Kurzantwort; (b) Fettdruck, Links und Überschriften-`#`
+  werden aus LLM-Antworten entfernt.
+- Durchläufe bis alle Tests grün: 4 pytest-, 4 lint-Läufe; Abnahmetests beim 1. Lauf grün.
+  Am Ende: lint ok, pytest 471, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75
+  ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0. Alles mit `LLM_PROVIDER=fake`,
+  ohne Ollama (Vorgabe des Menschen); `make acceptance-llm` deshalb nicht gelaufen.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Zwei eigene Testerwartungen waren falsch (pytest): „Lauf" ist der Kurzname von „MVZ Lauf"
+    und zählt wie in 009 als Standort, nicht als Ort; „Terminbuchung" beginnt nicht mit
+    `buch`, ist also nach Anforderung 2 kein Wunschwort. Tests korrigiert, nicht der Code.
+  - Die Kurznachrichten-Regel hat 12 bestehende pytest-Tests getroffen, die den LLM-Ablauf
+    mit Eingaben wie „Hallo", „Frage" oder „Akupunktur?" prüfen. Eingaben in ganze Sätze
+    geändert, Prüfungen unverändert. Ebenso `test_erfundene_uhrzeit_wird_ersetzt` (009):
+    „Ich hätte gern einen Termin beim Hausarzt" ist jetzt ein allgemeiner Terminwunsch, die
+    Eingabe heißt dort jetzt „Ich hätte gern Termine beim Hausarzt".
+  - mypy: fehlende Typargumente in den neuen Tests, ruff: Zeilenlänge/Importreihenfolge.
+- Getroffene Annahmen:
+  - Nur ein Standort genannt (ohne Fachrichtung): Das Beispiel lautet „Termin <Fachrichtung>
+    im <Standortname>" statt „… in <Ort>", weil „in Nürnberg" wieder mehrdeutig wäre.
+  - Beispiel-Fachrichtung bzw. -Standort ist jeweils der erste der Liste (alphabetisch
+    bzw. in Verzeichnisreihenfolge).
+  - Eine Fachrichtung mit unbekanntem Ort („Termin Kardiologie in München") gilt als „nur
+    Fachrichtung"; der Text nennt den Standort, an dem es sie gibt.
+  - Kurznachricht = höchstens 2 Wörter ohne Wort mit `termin`, Fachrichtung, Ort oder
+    Standort (seit Review-Runde 1). „danke" = ein Wort, das mit `dank` beginnt („Vielen Dank").
+  - Markdown-Entfernung nur im LLM-Ablauf, nach dem Abtrennen der Quellenzeile; Listen und
+    `*`-Aufzählungen bleiben.
+- Offene Punkte:
+  - „Hallo" bekommt jetzt die Kurznachricht-Antwort („Ich kann frühere Nachrichten nicht
+    fortsetzen …"); vom Menschen so entschieden.
+  - Wunschwort `einen`: „Ich habe einen Termin am Montag, wo kann ich parken?" bekommt die
+    Termin-Rückfrage statt der Parkinfo (spec-konform, Kandidat für eine Folge-Spec).
+  - Offene Grenze (Entscheidung Mensch: Folge-Spec): „Kardiologie Fürth" ohne „Termin" als
+    Antwort auf die Rückfrage geht weiter an das LLM – mit Verlauf, also genau in die Lage
+    der Generalprobe.
+  - Ausschluss- und Wunschwörter gelten nur am Wortanfang: „Terminbuchung" oder
+    „Terminabsage" werden nicht als Wunsch- bzw. Ausschlusswort erkannt.
+  - `make acceptance-llm` und `make eval MODUS=voll` nicht gelaufen (kein Ollama).
+- Review Runde 1 (Subagent `reviewer`), 2 blockierende Punkte:
+  - Kurznachricht-Regel zu breit: „Termin absagen", „Termin Kardiologie", „Öffnungszeiten
+    Fürth?" bekamen die feste Antwort statt Wissensbasis/LLM – ein Rückschritt, den ich nur
+    als offenen Punkt notiert und trotzdem `fertig` gesetzt hatte. Behoben: Kurznachricht nur
+    ohne Wort mit `termin` und ohne Fachrichtung, Ort oder Standort (`nennt_angaben()`);
+    pytest-Fälle dafür ergänzt. „Hallo" bekommt weiterhin die feste Antwort.
+  - „Ergänzung (Mensch)" in der Spec: Wortlaut vom Menschen in dieser Sitzung vorgegeben
+    (Auftrag zu Spec 010), vom Agenten eingetragen; Bestätigung im PR erbeten.
+  - Hinweise umgesetzt: `__init__.py` bleibt unverändert, Links mit Klammern in der URL
+    werden vollständig entfernt (je ein pytest-Fall). Ein Fehlversuch: `(?![\w.])` hätte
+    „__wichtig__." nicht mehr entfernt, jetzt `(?!\.?\w)`.
+  - Nach den Korrekturen: lint ok, pytest 484, `make acceptance SPEC=010` 5/5,
+    `make acceptance` 75/75.
+- Review Runde 2: freigegeben, keine blockierenden Punkte (Hinweise oben unter „Offene Punkte").
+- Entscheidungen des Menschen nach Runde 2:
+  - Notfall-Lücke („Hilfe!", „Notruf" bekamen die Kurznachricht-Antwort ohne 112): Der feste
+    Kurznachricht-Text endet jetzt mit „Im Notfall rufen Sie die 112, den ärztlichen
+    Bereitschaftsdienst erreichen Sie unter 116117."; „notruf" ist Notfallmuster (auch
+    „Notrufnummer"), als „Ergänzung (Mensch, Spec 010)" in Spec 006 vermerkt. pytest dafür.
+  - „Ja, bitte"/„Hallo" behalten die feste Antwort (bewusst, Verlauf nicht im Umfang).
+  - „Ergänzung (Mensch)" in Spec 010 vom Menschen bestätigt.
+  - Danach: lint ok, pytest 494, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75
+    ohne 429, `make eval` Retrieval 0.952 / Notfall 1.0.
+- Review Runde 3: Änderungen nötig, 2 blockierende Punkte, beide vom Menschen entschieden:
+  - Ergänzung in Spec 006 und `notruf`-Muster außerhalb der eigenen Spec: bleibt – ausdrückliche
+    Entscheidung des Menschen, als „Ergänzung (Mensch, Spec 010)" gekennzeichnet.
+  - Kurznachricht-Regel immer noch zu breit („Öffnungszeiten?", „Rezept bestellen",
+    „Akupunktur?" bekamen die feste Antwort). Die in Runde 1 umgeschriebenen pytest-Eingaben
+    hatten diesen Rückschritt verdeckt statt ihn zu beheben – mein Fehler. Entscheidung Mensch:
+    feste Wortliste (ja, nein, ok, gut, bitte, hallo, danke, hilfe …). Umgeschriebene
+    Eingaben in `test_chat.py` auf den Stand von main zurückgesetzt, außer „Hallo" (steht auf
+    der Liste). `nennt_angaben()` entfernt, weil nicht mehr gebraucht.
+  - 112-Satz auf Wunsch des Menschen auch im Wortlaut der Ergänzung in Spec 010 nachgetragen.
+  - Hinweis umgesetzt: `Terminwunsch(...)` im Ein-Standort-Fall mit Keyword-Argumenten.
+
 ## Spec 009 – Terminwunsch regelbasiert erkennen (2026-10-29)
 
 - Anlass: Generalprobe mit `qwen2.5:7b` – bei „Termin in der Gastroenterologie in Fürth"

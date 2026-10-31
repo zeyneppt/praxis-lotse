@@ -38,6 +38,8 @@ _KOERPERLICH = [
     rf"\bstark\w*{_W}blut(?:ung\w*|et|en)\b|\bblut(?:et|en)\b{_W}stark",
     r"(?:hoert|hoeren)\s+nicht\s+auf\s+zu\s+bluten|blutung\w*\s+(?:nicht\s+)?(?:stoppen|stillen)",
     r"krampfanfall|krampfanfaelle|epileptische\w*\s+anfall",
+    # Ergänzung (Mensch, Spec 010)
+    r"notruf",
 ]
 
 _SEELISCH = [

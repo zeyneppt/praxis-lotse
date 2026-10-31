@@ -127,3 +127,53 @@ def erkenne_terminwunsch(nachricht: str, katalog: StandortKatalog) -> Terminwuns
         am_ort=[s for s in im_verbund if s.ort == ort],
         im_verbund=im_verbund,
     )
+
+
+# --- Allgemeiner Terminwunsch (Spec 010) -------------------------------------
+# Fehlt Fachrichtung oder Ort, erfinden kleine Modelle Angebote. Der Server fragt deshalb
+# selbst nach – nur mit Angaben aus dem Standortverzeichnis.
+
+_WUNSCH_PRAEFIXE = ("frei", "buch", "vereinbar")
+# Diese Fragen beantwortet die Wissensbasis.
+_AUSSCHLUSS_PRAEFIXE = ("absag", "verschieb", "stornier", "mitbring")
+
+
+@dataclass(frozen=True)
+class AllgemeinerTerminwunsch:
+    """Höchstens eines ist gesetzt: Fachrichtung, Standort oder Ort; nichts → Rückfrage."""
+
+    fachrichtung: str | None = None
+    standort: Standort | None = None
+    ort: str | None = None
+
+
+def _drueckt_wunsch_aus(woerter: list[str]) -> bool:
+    return any(w.startswith(_WUNSCH_PRAEFIXE) or w == "einen" for w in woerter)
+
+
+def _schliesst_aus(woerter: list[str]) -> bool:
+    return any(w.startswith(_AUSSCHLUSS_PRAEFIXE) for w in woerter)
+
+
+def erkenne_allgemeinen_terminwunsch(
+    nachricht: str, katalog: StandortKatalog
+) -> AllgemeinerTerminwunsch | None:
+    """Terminwunsch, dem Fachrichtung oder Ort fehlt; `None`, wenn Spec 009 greift."""
+    woerter = _woerter(nachricht)
+    if not (_nennt_termin(woerter) and _drueckt_wunsch_aus(woerter)) or _schliesst_aus(woerter):
+        return None
+    if erkenne_terminwunsch(nachricht, katalog) is not None:
+        return None
+    fachrichtungen = [f for f in katalog.fachrichtungen() if _nennt_fachrichtung(woerter, f)]
+    standorte = katalog.search()
+    standort = _genannter_standort(woerter, standorte)
+    orte = sorted({s.ort for s in standorte if _nennt_ort(woerter, s.ort)})
+    if len(fachrichtungen) == 1 and standort is None and not orte:
+        return AllgemeinerTerminwunsch(fachrichtung=fachrichtungen[0])
+    if fachrichtungen or standort is False:
+        return AllgemeinerTerminwunsch()
+    if standort is not None:
+        return AllgemeinerTerminwunsch(standort=standort)
+    if len(orte) == 1:
+        return AllgemeinerTerminwunsch(ort=orte[0])
+    return AllgemeinerTerminwunsch()

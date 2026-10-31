@@ -1,6 +1,6 @@
 # Spec 010 – Unvollständiger Terminwunsch: gezielte Rückfrage statt LLM
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 009
 **Abnahmetests:** `tests/acceptance/010_terminwunsch_rueckfrage.robot` (Tag `spec-010`)
 
@@ -47,6 +47,22 @@ dem Standortverzeichnis enthält.
    429-Fehler auf: Ursache im Factory-Log und im PR beschreiben und aufhören.
 6. `docs/factory-log.md`: Eintrag mit Anlass (Generalprobe) und Ergebnis.
 
+**Ergänzung (Mensch):**
+
+- (a) Kurze Nachrichten ohne Frageinhalt (höchstens 2 Wörter, kein Notfall, kein
+  Terminwunsch, z. B. „ja", „ok", „danke", „nein") gehen nicht an das LLM. Feste Antwort
+  aus `leitplanken/texte.py`: „Ich kann frühere Nachrichten nicht fortsetzen. Bitte stellen
+  Sie Ihre Frage in einem ganzen Satz, zum Beispiel: „Termin Gastroenterologie in Fürth"
+  oder „Was muss ich zum ersten Termin mitbringen?"" Bei „danke" ist eine freundliche
+  Kurzantwort ok. Nachtrag (Mensch, nach Review): Der feste Text endet mit „Im Notfall rufen
+  Sie die 112, den ärztlichen Bereitschaftsdienst erreichen Sie unter 116117." Als
+  Kurznachricht gelten nur Bestätigungs-, Gruß-, Dank- und Hilfewörter (feste Wortliste);
+  kurze Fragen wie „Öffnungszeiten?" gehen weiter an die Wissensbasis.
+- (b) Markdown in LLM-Antworten serverseitig entfernen: `**fett**`/`__fett__` → Text,
+  `[Text](URL)` → Text, Überschriften-`#` entfernen. Listen mit „- " dürfen bleiben.
+  Die Oberfläche verlinkt Telefonnummern schon selbst.
+- pytest für beides.
+
 ## Nicht im Umfang
 
 - Den Verlauf auswerten (z. B. den zuletzt genannten Standort übernehmen)
@@ -54,3 +70,24 @@ dem Standortverzeichnis enthält.
 
 ## Umsetzungsnotizen
 
+Plan:
+1. `leitplanken/terminwunsch.py`: `erkenne_allgemeinen_terminwunsch()` – gleiche Wörter und
+   Fachrichtungs-/Ort-/Standortregeln wie 009, dazu Wunschwort (`frei`/`buch`/`vereinbar`/`einen`)
+   und Ausschlusswörter (`absag`/`verschieb`/`stornier`/`mitbring`); nur wenn 009 nicht greift.
+2. Ergebnis: genau eine Fachrichtung (ohne Ort) oder Ort/Standort (ohne Fachrichtung), sonst Rückfrage.
+3. Antworttexte in `leitplanken/texte.py`; ein Standort mit der Fachrichtung → Termine wie 009.
+4. `run_chat`: Notfall → 009 → 010 → Kurznachricht (a) → LLM; Markdown-Bereinigung (b) der LLM-Antwort.
+5. pytest: Erkennung (positiv/negativ/Ausschluss), alle Antwortfälle, (a), (b).
+6. Container neu bauen (`LLM_PROVIDER=fake`), `make ingest`, `make lint`, `make test`,
+   `make acceptance SPEC=010`, `make acceptance`.
+7. Factory-Log, PR, CI mit `gh pr checks --watch` abwarten.
+
+Entscheidungen (Details und offene Punkte im Factory-Log):
+- Nur Standort genannt → Beispiel „Termin <Fachrichtung> im <Standortname>".
+- Kurznachricht = 1–2 Wörter, alle aus einer festen Liste von Bestätigungs-, Gruß-, Dank- und
+  Hilfewörtern (Entscheidung Mensch nach Review-Runde 3); „danke" → freundliche Kurzantwort.
+- Markdown-Entfernung nur für LLM-Antworten. Bestehende pytest-Eingaben bleiben wie in main,
+  außer „Hallo" (steht auf der Wortliste) und der Hausarzt-Fall aus 009.
+- Nach Review (Entscheidung Mensch): Kurznachricht-Text nennt 112 und 116117; „Notruf" ist
+  Notfallmuster (Ergänzung in Spec 006). „Kardiologie Fürth" ohne „Termin" → Folge-Spec.
+- Ergebnis: pytest 504 grün, `make acceptance SPEC=010` 5/5, `make acceptance` 75/75.

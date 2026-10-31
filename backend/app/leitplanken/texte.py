@@ -52,3 +52,33 @@ TERMIN_NUR_AUS_TERMINSYSTEM = (
     "Freie Termine kann ich Ihnen nur direkt aus dem Terminsystem zeigen. Bitte nennen Sie "
     'Fachrichtung und Ort, zum Beispiel: „Termin in der Gastroenterologie in Fürth".'
 )
+
+# Terminwunsch ohne Fachrichtung oder Ort (Spec 010). Nur Angaben aus dem Standortverzeichnis.
+TERMINWUNSCH_STANDORTE_FUER_FACHRICHTUNG = (
+    "{fachrichtung} gibt es im Verbund an mehreren Standorten: {standorte}. "
+    'Bitte nennen Sie den Standort, zum Beispiel: „Termin {fachrichtung} im {beispiel}".'
+)
+TERMINWUNSCH_FACHRICHTUNGEN_AM_ORT = (
+    "In {ort} gibt es im Verbund diese Fachrichtungen: {fachrichtungen}. "
+    'Bitte nennen Sie die Fachrichtung, zum Beispiel: „Termin {beispiel} in {ort}".'
+)
+TERMINWUNSCH_FACHRICHTUNGEN_AM_STANDORT = (
+    "Im {standort} gibt es diese Fachrichtungen: {fachrichtungen}. "
+    'Bitte nennen Sie die Fachrichtung, zum Beispiel: „Termin {beispiel} im {standort}".'
+)
+TERMINWUNSCH_RUECKFRAGE = (
+    "Gern suche ich freie Termine für Sie. Bitte nennen Sie Fachrichtung und Ort. "
+    "Im Verbund gibt es: {fachrichtungen}. "
+    'Zum Beispiel: „Termin Gastroenterologie in Fürth".'
+)
+
+# Kurze Nachricht ohne Frageinhalt, z. B. „ja" oder „ok" (Spec 010, Ergänzung).
+KURZNACHRICHT = (
+    "Ich kann frühere Nachrichten nicht fortsetzen. Bitte stellen Sie Ihre Frage in einem "
+    'ganzen Satz, zum Beispiel: „Termin Gastroenterologie in Fürth" oder „Was muss ich zum '
+    'ersten Termin mitbringen?" Im Notfall rufen Sie die 112, den ärztlichen '
+    "Bereitschaftsdienst erreichen Sie unter 116117."
+)
+KURZNACHRICHT_DANKE = (
+    "Gern geschehen! Wenn Sie noch eine Frage haben, stellen Sie sie bitte in einem ganzen Satz."
+)

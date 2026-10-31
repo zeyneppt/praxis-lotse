@@ -51,6 +51,9 @@ personenbezogenen Daten in Logs.
 
    Der zugehörige Test liegt in `999_ratenbegrenzung.robot` und läuft als letzte Suite.
 
+**Ergänzung (Mensch, Spec 010):** „Notruf" (auch in Komposita wie „Notrufnummer") gilt als
+Notfallmuster (körperlich) und löst die Notfallantwort mit 112 aus.
+
 ## API-Vertrag
 
 Keine neuen Endpunkte. Änderungen an `POST /api/chat`: `kategorie: "notfall"`

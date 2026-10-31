@@ -653,7 +653,7 @@ def test_api_chat_anbieterfehler_liefert_kategorie_fehler(
 ) -> None:
     app.dependency_overrides[get_provider] = FehlerProvider
 
-    antwort = client.post("/api/chat", json={"nachricht": "Hallo"})
+    antwort = client.post("/api/chat", json={"nachricht": "Hallo, ich habe eine Frage"})
 
     assert antwort.status_code == 200
     daten = antwort.json()
