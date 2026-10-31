@@ -1,6 +1,6 @@
 # Spec 011 – Kurzangaben wie „Kardiologie Fürth" als Terminwunsch
 
-**Status:** offen
+**Status:** fertig
 **Abhängigkeiten:** 009, 010
 **Abnahmetests:** `tests/acceptance/011_kurzangaben.robot` (Tag `spec-011`)
 
@@ -49,3 +49,18 @@ Füllwörtern besteht, wird deshalb wie ein Terminwunsch behandelt.
 
 ## Umsetzungsnotizen
 
+Plan:
+1. `leitplanken/terminwunsch.py`: Erkennung von Ort/Standort aus Spec 009 in eine Hilfsfunktion
+   ohne „Termin"-Prüfung auslagern; 009 und 010 nutzen sie unverändert weiter.
+2. `erkenne_kurzangabe()`: genau eine Fachrichtung (Regeln 009); jedes Wort ist ein Wort der
+   Fachrichtung (Präfixregel), des erkannten Orts/Standortnamens oder ein Füllwort der Spec.
+3. Ergebnis wie ein Terminwunsch mit denselben Angaben: mit eindeutigem Ort/Standort →
+   `Terminwunsch` (Antwort 009); ohne Ort → `AllgemeinerTerminwunsch(fachrichtung=…)`
+   (Antwort 010); mehrdeutig (zwei Orte/Standorte) → Rückfrage wie 010.
+4. `run_chat`: Notfall → 009 → 010 → Kurzangabe → Kurznachricht → LLM; keine neuen Texte.
+5. pytest: positive/negative Beispiele (Satzzeichen, Groß-/Kleinschreibung), Chat-Antworten ohne LLM.
+6. Container neu bauen (`LLM_PROVIDER=fake`), `make ingest`, `make lint`, `make test`,
+   `make acceptance SPEC=011`, dann `make acceptance`.
+7. README-Tabellen und Factory-Log ergänzen.
+
+Ergebnis: lint ok, pytest 546, `make acceptance SPEC=011` 5/5, `make acceptance` 80/80 (ohne 429).

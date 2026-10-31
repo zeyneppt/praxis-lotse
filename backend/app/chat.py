@@ -14,6 +14,7 @@ from app.leitplanken.terminwunsch import (
     AllgemeinerTerminwunsch,
     Terminwunsch,
     erkenne_allgemeinen_terminwunsch,
+    erkenne_kurzangabe,
     erkenne_terminwunsch,
     nennt_termin,
 )
@@ -236,6 +237,12 @@ def run_chat(
     if (allgemein := erkenne_allgemeinen_terminwunsch(nachricht, werkzeuge.katalog)) is not None:
         logger.info("Chat: allgemeiner Terminwunsch erkannt, LLM nicht aufgerufen")
         return _allgemeinen_terminwunsch_beantworten(allgemein, werkzeuge)
+    # Knappe Antwort auf die Rückfrage, z. B. „Kardiologie Fürth" (Spec 011).
+    if (kurzangabe := erkenne_kurzangabe(nachricht, werkzeuge.katalog)) is not None:
+        logger.info("Chat: Kurzangabe erkannt, LLM nicht aufgerufen")
+        if isinstance(kurzangabe, Terminwunsch):
+            return _terminwunsch_beantworten(kurzangabe, werkzeuge)
+        return _allgemeinen_terminwunsch_beantworten(kurzangabe, werkzeuge)
     # „ja", „ok" usw. kann der Assistent ohne Verlauf nicht fortsetzen (Spec 010, Ergänzung).
     if (kurz := erkenne_kurznachricht(nachricht)) is not None:
         logger.info("Chat: Kurznachricht erkannt, LLM nicht aufgerufen")

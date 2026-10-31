@@ -37,20 +37,27 @@ def nennt_termin(nachricht: str) -> bool:
     return _nennt_termin(_woerter(nachricht))
 
 
-def _nennt_fachrichtung(woerter: list[str], name: str) -> bool:
+def _fachrichtung_positionen(woerter: list[str], name: str) -> set[int]:
+    """Positionen der Wörter, die die Fachrichtung `name` nennen."""
     teile = _woerter(name)
     if len(teile) > 1:
         # Mehrwortnamen als Wortfolge; jedes Wort darf gebeugt sein („Inneren Medizin").
         n = len(teile)
-        return any(
-            all(w.startswith(t) for w, t in zip(woerter[i : i + n], teile, strict=True))
+        return {
+            j
             for i in range(len(woerter) - n + 1)
-        )
+            if all(w.startswith(t) for w, t in zip(woerter[i : i + n], teile, strict=True))
+            for j in range(i, i + n)
+        }
     (stamm,) = teile
     if stamm.endswith("ie"):
         # „Neurologen", „Kardiologin": Präfix ohne -ie schließt die volle Form mit ein.
         stamm = stamm[:-2]
-    return any(w.startswith(stamm) for w in woerter)
+    return {i for i, w in enumerate(woerter) if w.startswith(stamm)}
+
+
+def _nennt_fachrichtung(woerter: list[str], name: str) -> bool:
+    return bool(_fachrichtung_positionen(woerter, name))
 
 
 def _nennt_ort(woerter: list[str], ort: str) -> bool:
@@ -64,6 +71,22 @@ def _enthaelt_folge(woerter: list[str], folge: list[str]) -> list[int]:
     return [i for i in range(len(woerter) - n + 1) if woerter[i : i + n] == folge]
 
 
+def _standort_nennungen(
+    woerter: list[str], standorte: list[Standort]
+) -> list[tuple[int, int, Standort]]:
+    """Alle Nennungen von Standortnamen als (Anfang, Ende, Standort), auch überlappende."""
+    orte = {tuple(_woerter(s.ort)) for s in standorte}
+    nennungen: list[tuple[int, int, Standort]] = []
+    for s in standorte:
+        voll = _woerter(s.name)
+        formen = [voll]
+        if voll[0] == "mvz" and len(voll) > 1 and tuple(voll[1:]) not in orte:
+            formen.append(voll[1:])
+        for form in formen:
+            nennungen += [(i, i + len(form), s) for i in _enthaelt_folge(woerter, form)]
+    return nennungen
+
+
 def _genannter_standort(
     woerter: list[str], standorte: list[Standort]
 ) -> Standort | None | Literal[False]:
@@ -74,15 +97,7 @@ def _genannter_standort(
     Standort. Eine Nennung innerhalb einer längeren („MVZ Erlangen" in „MVZ Erlangen Süd")
     zählt nicht.
     """
-    orte = {tuple(_woerter(s.ort)) for s in standorte}
-    nennungen: list[tuple[int, int, Standort]] = []
-    for s in standorte:
-        voll = _woerter(s.name)
-        formen = [voll]
-        if voll[0] == "mvz" and len(voll) > 1 and tuple(voll[1:]) not in orte:
-            formen.append(voll[1:])
-        for form in formen:
-            nennungen += [(i, i + len(form), s) for i in _enthaelt_folge(woerter, form)]
+    nennungen = _standort_nennungen(woerter, standorte)
     genannt = {
         s.id: s
         for a, e, s in nennungen
@@ -98,6 +113,11 @@ def erkenne_terminwunsch(nachricht: str, katalog: StandortKatalog) -> Terminwuns
     woerter = _woerter(nachricht)
     if not _nennt_termin(woerter):
         return None
+    return _terminwunsch_aus(woerter, katalog)
+
+
+def _terminwunsch_aus(woerter: list[str], katalog: StandortKatalog) -> Terminwunsch | None:
+    """Regeln aus Spec 009 ohne die Prüfung auf „Termin"."""
     fachrichtungen = [f for f in katalog.fachrichtungen() if _nennt_fachrichtung(woerter, f)]
     if len(fachrichtungen) != 1:
         return None
@@ -177,3 +197,38 @@ def erkenne_allgemeinen_terminwunsch(
     if len(orte) == 1:
         return AllgemeinerTerminwunsch(ort=orte[0])
     return AllgemeinerTerminwunsch()
+
+
+# --- Kurzangabe (Spec 011) ---------------------------------------------------
+# Auf die Rückfrage aus Spec 010 antworten Menschen knapp („Kardiologie Fürth"). Besteht die
+# Nachricht nur aus Fachrichtung, Ort/Standort und Füllwörtern, gilt sie als Terminwunsch.
+
+# Wie die Nachricht normalisiert („für" → „fuer").
+_FUELLWOERTER = frozenset(
+    _woerter("in im bei beim der die das den dem am an für zur zum und mvz")
+    + _woerter("bitte gern gerne ja eher lieber")
+)
+
+
+def erkenne_kurzangabe(
+    nachricht: str, katalog: StandortKatalog
+) -> Terminwunsch | AllgemeinerTerminwunsch | None:
+    """Kurzangabe als Terminwunsch mit denselben Angaben (Spec 009/010), sonst `None`."""
+    woerter = _woerter(nachricht)
+    treffer = {
+        f: pos for f in katalog.fachrichtungen() if (pos := _fachrichtung_positionen(woerter, f))
+    }
+    if len(treffer) != 1:
+        return None
+    ((fachrichtung, positionen),) = treffer.items()
+    standorte = katalog.search()
+    orte = sorted({s.ort for s in standorte if _nennt_ort(woerter, s.ort)})
+    nennungen = _standort_nennungen(woerter, standorte)
+    erlaubt = set(_FUELLWOERTER).union(*(_woerter(o) for o in orte))
+    positionen = positionen.union(*(range(a, e) for a, e, _ in nennungen))
+    if any(i not in positionen and w not in erlaubt for i, w in enumerate(woerter)):
+        return None
+    if not orte and not nennungen:
+        return AllgemeinerTerminwunsch(fachrichtung=fachrichtung)
+    # Mehrere Orte oder Standorte: Rückfrage wie bei einem mehrdeutigen Terminwunsch (Spec 010).
+    return _terminwunsch_aus(woerter, katalog) or AllgemeinerTerminwunsch()

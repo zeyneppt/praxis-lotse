@@ -19,6 +19,7 @@ from app.logging import RedactFilter, redact
 from app.main import app
 from app.ratenbegrenzung import LIMIT_MELDUNG, Ratenbegrenzer
 from app.sitzungen import SitzungsSpeicher
+from tests.test_terminwunsch import KATALOG
 
 # --- Notfallerkennung --------------------------------------------------------
 
@@ -132,7 +133,8 @@ class KanarienProvider:
 def test_antwort_mit_kanarie_wird_ersetzt(caplog: pytest.LogCaptureFixture) -> None:
     from app.werkzeuge import Werkzeugkasten
 
-    werkzeuge = Werkzeugkasten(None, None, None, None)  # type: ignore[arg-type]
+    # Katalog nötig: Die Kurzangabe (Spec 011) prüft jede Nachricht auf Fachrichtungen.
+    werkzeuge = Werkzeugkasten(KATALOG, None, None, None)  # type: ignore[arg-type]
     with caplog.at_level(logging.WARNING):
         nachricht = "Hallo, ich habe eine Frage"
         ergebnis = run_chat(KanarienProvider(), "system", [], nachricht, werkzeuge)
@@ -256,7 +258,7 @@ def test_ratenbegrenzer_abgelehnte_zaehlen_nicht() -> None:
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    app.dependency_overrides[get_katalog] = lambda: None
+    app.dependency_overrides[get_katalog] = lambda: KATALOG
     app.dependency_overrides[get_session] = lambda: None
     app.dependency_overrides[get_embedder] = lambda: None
     app.dependency_overrides[get_terminsystem] = lambda: None
