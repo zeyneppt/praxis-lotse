@@ -22,6 +22,46 @@ Vorlage:
 
 <!-- Einträge ab hier -->
 
+## Spec 011 – Kurzangaben wie „Kardiologie Fürth" als Terminwunsch (2026-10-31)
+
+- Anlass: Review-Hinweis zu Spec 010 – auf die Rückfrage „Für welche Fachrichtung und an
+  welchem Ort …?" antworten Menschen knapp („Kardiologie Fürth", „Neurologie bitte"). Ohne
+  „Termin" gingen solche Nachrichten bisher an das LLM, also genau in die Lage aus der
+  Generalprobe, in der das Modell Angebote erfunden hat.
+- Ergebnis: `erkenne_kurzangabe()` in `leitplanken/terminwunsch.py`. Besteht die Nachricht nur
+  aus genau einer Fachrichtung, Wörtern des erkannten Orts/Standortnamens und Füllwörtern,
+  antwortet der Server ohne LLM wie bei 009 (mit Ort/Standort) bzw. 010 (ohne Ort) – gleiche
+  Texte, Quellen, `aktion`. Reihenfolge: Notfall → 009 → 010 → 011 → Kurznachricht → LLM.
+  Die 009-Logik nach der „Termin"-Prüfung steckt jetzt in `_terminwunsch_aus()`, die
+  Standortnennungen in `_standort_nennungen()`; 009/010 verhalten sich unverändert.
+- Durchläufe bis alle Tests grün: 3 pytest-, 3 lint-Läufe; Abnahmetests beim 1. Lauf grün.
+  Am Ende: lint ok, pytest 546, `make acceptance SPEC=011` 5/5, `make acceptance` 80/80
+  ohne 429. Alles mit `LLM_PROVIDER=fake`, ohne Ollama (Vorgabe des Menschen);
+  `make acceptance-llm` deshalb nicht gelaufen.
+- Fehler des Agenten und wie sie erkannt wurden:
+  - Füllwort „für" stand in der Rohform in der Liste, die Nachricht wird aber normalisiert
+    („fuer"). „Für die Kardiologie" war deshalb keine Kurzangabe. Beim Durchsehen bemerkt,
+    Liste wird jetzt mit derselben Normalisierung gebaut; pytest-Fall ergänzt.
+  - Eigene Testerwartung falsch: „Innere Medizin Lauf" erkennt „Lauf" als Kurznamen von
+    „MVZ Lauf" (wie in 009, siehe Spec-010-Eintrag) – Erwartung korrigiert, nicht der Code.
+  - Zwei bestehende Tests in `test_leitplanken.py` (`test_antwort_mit_kanarie_wird_ersetzt`,
+    `test_llm_fehler_im_log_wird_redigiert`) bauten den Chat mit Katalog `None`. Das ging nur,
+    weil 009/010 ohne „Termin" vor dem Katalogzugriff abbrechen; die Kurzangabe braucht für
+    jede Nachricht die Fachrichtungen. Statt einer `None`-Prüfung im Produktivcode (Sonderfall
+    für Tests) bekommen beide Tests den echten Katalog. **Eingaben und Prüfungen unverändert.**
+- Getroffene Annahmen:
+  - „Wörter der Fachrichtung" nach den Regeln aus 009, also auch gebeugt („beim Neurologen",
+    „Inneren Medizin"); „Wörter eines Orts" sind alle Wörter des Ortsnamens („Lauf an der
+    Pegnitz"), auch wenn wie in 009 das erste Wort zur Erkennung genügt.
+  - Mehrere Orte/Standorte nur mit Füllwörtern („Neurologie Fürth Erlangen") gelten als
+    Kurzangabe und bekommen – wie „Einen Termin für Neurologie in Fürth oder Erlangen" – die
+    Rückfrage aus 010. „oder" ist kein Füllwort; „Kardiologie Fürth oder Erlangen" geht ans LLM.
+  - Nur die Fachrichtung („Kardiologie?") ist eine Kurzangabe; die Spec verlangt nur
+    „genau eine Fachrichtung" plus erlaubte Wörter.
+- Offene Punkte:
+  - „Kardiologie?" könnte auch eine Frage nach der Fachrichtung sein; die Antwort (Termine
+    bzw. Standorte) ist trotzdem sachlich richtig und ohne LLM.
+
 ## Spec 010 – Unvollständiger Terminwunsch: Rückfrage statt LLM (2026-10-29)
 
 - Anlass: Generalprobe mit `qwen2.5:7b` nach Spec 009 – auf „Welche freien Termine gibt es

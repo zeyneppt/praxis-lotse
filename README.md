@@ -23,6 +23,7 @@ den Code geschrieben, ein Reviewer-Agent und die CI haben ihn geprüft.
 | Qualität messen | Eval mit 30 Fragen, Schwellenwerte blockieren die CI | [007](specs/007-evaluation.md) |
 | Chat im Browser, auch mobil | React, barrierearm | [008](specs/008-chat-oberflaeche.md) |
 | Terminwünsche sicher beantworten – nie erfundene Termine | regelbasiert vor dem LLM: Termine nur aus dem Terminsystem, sonst gezielte Rückfrage | [009](specs/009-terminwunsch.md), [010](specs/010-terminwunsch-rueckfrage.md) |
+| Kurze Antworten wie „Kardiologie Fürth" als Terminwunsch verstehen | regelbasiert vor dem LLM: nur Fachrichtung, Ort/Standort und Füllwörter | [011](specs/011-kurzangaben.md) |
 
 ## Schnellstart
 
@@ -79,6 +80,7 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | 008 | Chat-Oberfläche | fertig |
 | 009 | Terminwunsch regelbasiert erkennen | fertig |
 | 010 | Unvollständiger Terminwunsch: Rückfrage statt LLM | fertig |
+| 011 | Kurzangaben wie „Kardiologie Fürth" als Terminwunsch | fertig |
 
 ## Ergebnisse
 
