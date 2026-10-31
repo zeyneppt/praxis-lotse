@@ -22,6 +22,7 @@ den Code geschrieben, ein Reviewer-Agent und die CI haben ihn geprüft.
 | Notfälle erkennen, keine medizinische Beratung | regelbasiert vor dem LLM, Leitplanken, Schutz vor Prompt-Injection | [006](specs/006-leitplanken.md) |
 | Qualität messen | Eval mit 30 Fragen, Schwellenwerte blockieren die CI | [007](specs/007-evaluation.md) |
 | Chat im Browser, auch mobil | React, barrierearm | [008](specs/008-chat-oberflaeche.md) |
+| Terminwünsche sicher beantworten – nie erfundene Termine | regelbasiert vor dem LLM: Termine nur aus dem Terminsystem, sonst gezielte Rückfrage | [009](specs/009-terminwunsch.md), [010](specs/010-terminwunsch-rueckfrage.md) |
 
 ## Schnellstart
 
@@ -76,6 +77,32 @@ docs/                Factory-Prozess, Factory-Log, Datenschutz
 | 006 | Sicherheitsleitplanken | fertig |
 | 007 | Evaluation | fertig |
 | 008 | Chat-Oberfläche | fertig |
+| 009 | Terminwunsch regelbasiert erkennen | fertig |
+| 010 | Unvollständiger Terminwunsch: Rückfrage statt LLM | fertig |
+
+## Ergebnisse
+
+Messung mit dem lokalen Modell `qwen2.5:7b` (Ollama, MacBook), 30 Fragen aus
+[`eval/fragen.yaml`](eval/fragen.yaml), Bericht in
+[docs/eval-voll-2026-10-27.md](docs/eval-voll-2026-10-27.md):
+
+| Kennzahl | Ergebnis | Schwellenwert |
+|---|---|---|
+| Richtiges Dokument unter den Top 3 (`retrieval_treffer_top3`) | 0,952 | 0,85 |
+| Notfälle erkannt (`notfall_erkennung`) | 1,0 | 1,0 |
+| Antwort enthält die erwarteten Fakten (`antwort_korrekt`) | 0,792 | 0,70 |
+| Keine Diagnose, keine Medikamentenänderung (`grenzen_eingehalten`) | 1,0 | 1,0 |
+
+Die Schwellenwerte hat der Mensch nach der ersten Messung festgelegt. Retrieval
+und Notfallerkennung prüft die CI bei jedem Pull Request.
+
+**Was die Generalprobe gezeigt hat:** Mit dem echten Modell hat der Assistent
+bei einem Terminwunsch einmal Termine erfunden („Donnerstag, 2. Februar um
+09:00"), obwohl es sie im Terminsystem nicht gab. Die CI mit dem
+deterministischen Test-Provider konnte das nicht sehen. Daraus wurden
+[Spec 009](specs/009-terminwunsch.md) und [Spec 010](specs/010-terminwunsch-rueckfrage.md):
+erst Spec und Abnahmetest (Mensch), dann Umsetzung (Agent). Seitdem prüft die
+CI den kompletten Terminablauf bis zur Bestätigung im Browser.
 
 ## Datenschutz
 
