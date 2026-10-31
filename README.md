@@ -95,7 +95,7 @@ Messung mit dem lokalen Modell `qwen2.5:7b` (Ollama, MacBook), 30 Fragen aus
 | Antwort enthält die erwarteten Fakten (`antwort_korrekt`) | 0,792 | 0,70 |
 | Keine Diagnose, keine Medikamentenänderung (`grenzen_eingehalten`) | 1,0 | 1,0 |
 
-Die Schwellenwerte hat der Mensch nach der ersten Messung festgelegt. Retrieval
+Die Schwellenwerte hat der Mensch nach der ersten Messung festgelegt. Die Wiederholung nach Spec 009–011 am 31.10.2026 ergab dieselben Werte ([Bericht](docs/eval-voll-2026-10-31.md)). Retrieval
 und Notfallerkennung prüft die CI bei jedem Pull Request.
 
 **Was die Generalprobe gezeigt hat:** Mit dem echten Modell hat der Assistent
